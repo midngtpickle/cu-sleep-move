@@ -193,6 +193,60 @@ img { max-width: 100%; display: block; }
   padding: 0 var(--sp-6);
 }
 
+.header-brand-group {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.brand-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: 5px 12px;
+  height: 34px;
+  min-width: 110px;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  color: var(--mid);
+  background: var(--dark-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-out);
+  user-select: none;
+}
+
+.brand-mode-btn:hover {
+  color: var(--white);
+  border-color: var(--white);
+  background: var(--dark-3);
+}
+
+.brand-mode-btn.active {
+  color: var(--white);
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--white);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.10);
+  font-weight: 800;
+}
+
+.brand-mode-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.brand-mode-text {
+  letter-spacing: 0.04em;
+}
+
+.brand-mode-accent {
+  color: var(--white);
+}
+
 .header-logo {
   display: flex;
   align-items: center;
@@ -1463,6 +1517,21 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 @media (max-width: 768px) {
   :root {
     --header-height: 52px;
+  }
+
+  .header-brand-group {
+    gap: var(--sp-1);
+  }
+
+  .brand-mode-btn {
+    padding: 4px 8px;
+    min-width: auto;
+    font-size: 11px;
+    height: 30px;
+  }
+
+  .brand-mode-icon {
+    font-size: 13px;
   }
 
   .header-nav {

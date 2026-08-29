@@ -66,6 +66,13 @@ function updateActiveNav(route) {
     const href = link.getAttribute('href')?.replace('#', '') || '';
     link.classList.toggle('active', href === route);
   });
+
+  const sleepBrand = document.getElementById('brand-cu-sleep');
+  const moveBrand = document.getElementById('brand-cu-move');
+  const isMove = (route === '/sensing' || route === '/cumove');
+
+  if (sleepBrand) sleepBrand.classList.toggle('active', !isMove);
+  if (moveBrand) moveBrand.classList.toggle('active', isMove);
 }
 
 // ─── Global Heartbeat ──────────────────────────────────────

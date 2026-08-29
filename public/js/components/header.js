@@ -11,10 +11,16 @@ export function renderHeader(container) {
   headerContainer = container;
   container.innerHTML = `
     <div class="header-inner">
-      <a href="#/live" class="logo" aria-label="Home">
-        <span class="logo-icon">🌙</span>
-        <span class="logo-text">CU <span class="logo-accent">SLEEP</span></span>
-      </a>
+      <div class="header-brand-group">
+        <a href="#/live" class="brand-mode-btn active" id="brand-cu-sleep" title="CU SLEEP — Sleep & Vitals Monitor">
+          <span class="brand-mode-icon">🌙</span>
+          <span class="brand-mode-text">CU <span class="brand-mode-accent">SLEEP</span></span>
+        </a>
+        <a href="#/sensing" class="brand-mode-btn" id="brand-cu-move" title="CU MOVE — Motion & Presence Radar">
+          <span class="brand-mode-icon">📡</span>
+          <span class="brand-mode-text">CU <span class="brand-mode-accent">MOVE</span></span>
+        </a>
+      </div>
       <nav class="nav" id="main-nav">
         <a href="#/live" class="nav-link active" data-route="/live">
           <span class="nav-icon">◈</span>Live
@@ -30,9 +36,6 @@ export function renderHeader(container) {
         </a>
         <a href="#/info" class="nav-link" data-route="/info">
           <span class="nav-icon">ℹ</span>Info
-        </a>
-        <a href="#/sensing" class="nav-link" data-route="/sensing">
-          <span class="nav-icon">📡</span>CU MOVE
         </a>
       </nav>
       <div class="header-right">
