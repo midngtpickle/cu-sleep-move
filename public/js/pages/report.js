@@ -10,11 +10,29 @@ import {
 import { processVitalsForCharts, formatDuration, formatTime } from '../services/vitals.js';
 import { statsCard, severityBadge } from '../components/stats-card.js';
 import { createTimeChart, destroyChart } from '../components/chart.js';
-import { getStoredApiKey, generateSleepAnalysis, renderMarkdown } from '../services/gemini.js';
+import {
+  AI_PROVIDERS,
+  AI_MODELS,
+  THINKING_BUDGETS,
+  getActiveProvider,
+  setActiveProvider,
+  getStoredApiKey,
+  getSelectedModel,
+  setSelectedModel,
+  getThinkingBudget,
+  setThinkingBudget,
+  generateSleepAnalysis,
+  renderMarkdown,
+} from '../services/ai.js';
 
 let brChart = null;
 let hrChart = null;
 let selectedNode = 'node-01';
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 export async function renderReport(container) {
   container.innerHTML = `
@@ -40,21 +58,22 @@ export async function renderReport(container) {
     </div>
   `;
 
+  // Populate node dropdown
+  const nodeSelect = document.getElementById('report-node');
   const nodes = await getNodes();
   selectedNode = await resolveNodeId(selectedNode);
-  const nodeSelect = document.getElementById('report-node');
-  if (nodes.length && nodeSelect) {
-    nodeSelect.innerHTML = nodes.map(n =>
-      `<option value="${n.id}"${n.id === selectedNode ? ' selected' : ''}>${n.name || n.id}</option>`
-    ).join('');
-  }
 
-  nodeSelect?.addEventListener('change', (e) => {
+  nodeSelect.innerHTML = nodes.map(n =>
+    `<option value="${n.id}"${n.id === selectedNode ? ' selected' : ''}>${n.name || n.id}</option>`
+  ).join('');
+
+  nodeSelect.addEventListener('change', async (e) => {
     selectedNode = e.target.value;
-    populateSessions();
+    await populateSessions();
   });
+
   document.getElementById('report-session')?.addEventListener('change', (e) => {
-    if (e.target.value) loadReport(Number(e.target.value));
+    if (e.target.value) loadReport(e.target.value);
   });
 
   await populateSessions();
@@ -80,8 +99,7 @@ async function populateSessions() {
     return;
   }
 
-  // Open the newest night that actually has data. The session recording right
-  // now is listed first but has nothing to show until its first minute lands.
+  // Open the newest night that actually has data.
   const initial = sessions.find(s => s.minutes > 0) ?? sessions[0];
 
   select.innerHTML = sessions.map(s =>
@@ -97,7 +115,6 @@ async function loadReport(sessionId) {
 
   content.innerHTML = `<div class="loading"><div class="loading-spinner"></div><span>Loading session…</span></div>`;
 
-  // The rollup comes from SQL; the batches are only needed for the charts.
   const [session, vitals] = await Promise.all([
     getSession(sessionId),
     getSessionVitals(sessionId),
@@ -118,14 +135,13 @@ async function loadReport(sessionId) {
       : 'The bridge ran but never completed a full minute of readings.';
     content.innerHTML = `
       <div class="empty-state">
-        <div class="empty-icon">∅</div>
-        <p>No minute data for this session yet.</p>
+        <div class="empty-icon">⏳</div>
+        <p><strong>${session.label}</strong></p>
         <p class="empty-hint">${why}</p>
       </div>`;
     return;
   }
 
-  // Statistics come from the server rollup; the batches only drive the charts.
   const chartData = processVitalsForCharts(vitals);
   const stats = session.stats;
   const apneaCount = session.apneaEvents;
@@ -137,49 +153,9 @@ async function loadReport(sessionId) {
   const startTime = toDate(session.startTime);
   const endTime = toDate(session.endTime);
 
-  // Prepare AI Section HTML
-  const apiKey = getStoredApiKey();
   session.aiAnalysis = getAIAnalysis(session.id);
-  let aiSectionHtml = '';
 
-  if (session.aiAnalysis) {
-    aiSectionHtml = `
-      <div class="chart-header">
-        <span class="chart-title">✦ Gemini AI Sleep Analysis</span>
-      </div>
-      <div class="setup-body" style="line-height: 1.8; font-size: var(--fs-sm); color: var(--light-1);">
-        <div class="ai-text-content" style="margin-bottom: var(--sp-4);">${renderMarkdown(session.aiAnalysis)}</div>
-        <div style="margin-top: var(--sp-4); display: flex; gap: var(--sp-2);">
-          <button class="btn" id="regenerate-ai-btn">Regenerate Analysis</button>
-          <button class="btn btn-danger" id="delete-ai-btn" style="padding: var(--sp-1) var(--sp-3); font-size: var(--fs-xs);">Delete Analysis</button>
-        </div>
-      </div>
-    `;
-  } else {
-    if (apiKey) {
-      aiSectionHtml = `
-        <div class="chart-header">
-          <span class="chart-title">✦ Gemini AI Sleep Analysis</span>
-        </div>
-        <div class="setup-body" style="text-align: center; padding: var(--sp-6) var(--sp-4);">
-          <p style="margin-bottom: var(--sp-4); color: var(--mid-light);">Generate an automated clinical-style AI analysis of this sleep session.</p>
-          <button class="btn btn-primary" id="analyze-ai-btn">✦ Analyze with Gemini</button>
-        </div>
-      `;
-    } else {
-      aiSectionHtml = `
-        <div class="chart-header">
-          <span class="chart-title">✦ Gemini AI Sleep Analysis</span>
-        </div>
-        <div class="setup-body" style="text-align: center; padding: var(--sp-6) var(--sp-4);">
-          <p style="margin-bottom: var(--sp-4); color: var(--mid);">Gemini API Key is not configured. Add your key in the Setup page to enable AI analysis.</p>
-          <a href="#/setup" class="btn" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Configure Key</a>
-        </div>
-      `;
-    }
-  }
-
-  // Render report
+  // Render report scaffold
   content.innerHTML = `
     <!-- Summary Stats -->
     <div class="stats-grid">
@@ -221,9 +197,7 @@ async function loadReport(sessionId) {
     </div>
 
     <!-- AI Analysis Panel -->
-    <div class="chart-panel" id="ai-analysis-panel">
-      ${aiSectionHtml}
-    </div>
+    <div class="chart-panel" id="ai-analysis-panel"></div>
   `;
 
   // Create charts
@@ -257,7 +231,7 @@ async function loadReport(sessionId) {
     });
   }
 
-  // AI Event Listeners and Prompt Compilation
+  // Session Data bundle for AI
   const sessionData = {
     ...session,
     avgBreathingRate: stats.avgBR,
@@ -271,116 +245,186 @@ async function loadReport(sessionId) {
     sleepQualityScore: quality
   };
 
-  const bindAIEventListeners = () => {
-    const analyzeBtn = document.getElementById('analyze-ai-btn');
-    const regenerateBtn = document.getElementById('regenerate-ai-btn');
-    const deleteAIBtn = document.getElementById('delete-ai-btn');
+  // Render & bind AI Panel
+  renderAIPanel(session.aiAnalysis);
+
+  function renderAIPanel(analysisObj) {
     const panel = document.getElementById('ai-analysis-panel');
+    if (!panel) return;
 
-    const runAnalysis = async (btn) => {
-      if (!btn) return;
-      btn.disabled = true;
-      
+    let activeProvider = getActiveProvider();
+    let hasKey = !!getStoredApiKey(activeProvider);
+
+    if (analysisObj && analysisObj.text) {
+      const providerLabel = analysisObj.provider === 'claude' ? 'Anthropic Claude' : (analysisObj.provider === 'gemini' ? 'Google Gemini' : 'AI Analyst');
+      const modelLabel = analysisObj.model ? ` · ${analysisObj.model}` : '';
+
       panel.innerHTML = `
-        <div class="chart-header">
-          <span class="chart-title">✦ Gemini AI Sleep Analysis</span>
-        </div>
-        <div class="setup-body" style="text-align: center; padding: var(--sp-8) var(--sp-4); font-family: var(--font-mono); color: var(--mid);">
-          <div class="loading-spinner" style="margin: 0 auto var(--sp-4) auto;"></div>
-          <span>[ Analyzing sleep patterns using Gemini 1.5 Flash... ]</span>
-        </div>
-      `;
-
-      try {
-        const analysis = await generateSleepAnalysis(sessionData);
-        saveAIAnalysis(session.id, analysis);
-
-        session.aiAnalysis = analysis;
-        renderAIPanel(analysis);
-      } catch (err) {
-        console.error('AI analysis failed:', err);
-        panel.innerHTML = `
-          <div class="chart-header">
-            <span class="chart-title">✦ Gemini AI Sleep Analysis</span>
-          </div>
-          <div class="setup-body" style="text-align: center; padding: var(--sp-6) var(--sp-4);">
-            <p style="color: var(--alert-red); margin-bottom: var(--sp-4);">Analysis Failed: ${err.message}</p>
-            <button class="btn" id="retry-ai-btn">Try Again</button>
-          </div>
-        `;
-        document.getElementById('retry-ai-btn')?.addEventListener('click', (e) => runAnalysis(e.target));
-      }
-    };
-
-    const renderAIPanel = (analysisText) => {
-      panel.innerHTML = `
-        <div class="chart-header">
-          <span class="chart-title">✦ Gemini AI Sleep Analysis</span>
+        <div class="chart-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="chart-title">✦ AI Sleep Analysis</span>
+          <span class="ai-badge">${providerLabel}${modelLabel}</span>
         </div>
         <div class="setup-body" style="line-height: 1.8; font-size: var(--fs-sm); color: var(--light-1);">
-          <div class="ai-text-content" style="margin-bottom: var(--sp-4);">${renderMarkdown(analysisText)}</div>
-          <div style="margin-top: var(--sp-4); display: flex; gap: var(--sp-2);">
+          ${analysisObj.thinking ? `
+            <details class="ai-reasoning-accordion">
+              <summary class="ai-reasoning-summary">
+                <span class="ai-reasoning-icon">🧠</span>
+                <span class="ai-reasoning-title">Clinical Reasoning Process</span>
+                <span class="ai-reasoning-tag">${analysisObj.model || 'Reasoning'}</span>
+              </summary>
+              <div class="ai-reasoning-body">
+                <pre class="ai-reasoning-text">${escapeHtml(analysisObj.thinking)}</pre>
+              </div>
+            </details>
+          ` : ''}
+          <div class="ai-text-content" style="margin-bottom: var(--sp-4);">${renderMarkdown(analysisObj.text)}</div>
+          <div style="margin-top: var(--sp-4); display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap;">
             <button class="btn" id="regenerate-ai-btn">Regenerate Analysis</button>
             <button class="btn btn-danger" id="delete-ai-btn" style="padding: var(--sp-1) var(--sp-3); font-size: var(--fs-xs);">Delete Analysis</button>
           </div>
         </div>
       `;
-      document.getElementById('regenerate-ai-btn')?.addEventListener('click', (e) => runAnalysis(e.target));
-      document.getElementById('delete-ai-btn')?.addEventListener('click', handleDelete);
-    };
 
-    const handleDelete = async () => {
-      if (!confirm('Are you sure you want to delete this AI analysis?')) return;
-      
+      document.getElementById('regenerate-ai-btn')?.addEventListener('click', () => runAnalysis());
+      document.getElementById('delete-ai-btn')?.addEventListener('click', handleDelete);
+      return;
+    }
+
+    if (hasKey) {
+      const models = AI_MODELS[activeProvider] || [];
+      const currentModel = getSelectedModel(activeProvider);
+      const currentBudget = getThinkingBudget(activeProvider);
+
       panel.innerHTML = `
         <div class="chart-header">
-          <span class="chart-title">✦ Gemini AI Sleep Analysis</span>
+          <span class="chart-title">✦ AI Sleep Analysis</span>
         </div>
-        <div class="setup-body" style="text-align: center; padding: var(--sp-6) var(--sp-4); font-family: var(--font-mono); color: var(--mid);">
-          <span>Deleting analysis...</span>
+        <div class="setup-body" style="padding: var(--sp-5) var(--sp-4);">
+          <p style="margin-bottom: var(--sp-4); color: var(--mid-light); font-size: var(--fs-sm);">
+            Generate an automated clinical-style evaluation with physiological synthesis, apnea metrics, and recovery recommendations.
+          </p>
+
+          <div class="ai-quick-bar" style="display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4); align-items: flex-end;">
+            <div style="flex: 1; min-width: 140px;">
+              <label style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase; letter-spacing: 0.05em;">Provider</label>
+              <select id="quick-provider-select" class="node-dropdown" style="width: 100%;">
+                <option value="gemini"${activeProvider === 'gemini' ? ' selected' : ''}>Google Gemini</option>
+                <option value="claude"${activeProvider === 'claude' ? ' selected' : ''}>Anthropic Claude</option>
+              </select>
+            </div>
+
+            <div style="flex: 2; min-width: 200px;">
+              <label style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase; letter-spacing: 0.05em;">Model</label>
+              <select id="quick-model-select" class="node-dropdown" style="width: 100%;">
+                ${models.map(m => `<option value="${m.id}"${m.id === currentModel ? ' selected' : ''}>${m.name} (${m.tag})</option>`).join('')}
+              </select>
+            </div>
+
+            <div style="flex: 1.5; min-width: 160px;">
+              <label style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase; letter-spacing: 0.05em;">Reasoning Budget</label>
+              <select id="quick-thinking-select" class="node-dropdown" style="width: 100%;">
+                ${THINKING_BUDGETS.map(b => `<option value="${b.value}"${b.value === currentBudget ? ' selected' : ''}>${b.label}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="analyze-ai-btn" style="padding: 10px 22px; font-size: var(--fs-sm); font-weight: 600;">
+            ✦ Generate Clinical Analysis
+          </button>
         </div>
       `;
 
-      try {
-        deleteAIAnalysis(session.id);
-        session.aiAnalysis = null;
+      const providerSel = document.getElementById('quick-provider-select');
+      const modelSel = document.getElementById('quick-model-select');
+      const thinkSel = document.getElementById('quick-thinking-select');
 
+      providerSel?.addEventListener('change', (e) => {
+        setActiveProvider(e.target.value);
+        renderAIPanel(null);
+      });
 
-        if (apiKey) {
-          panel.innerHTML = `
-            <div class="chart-header">
-              <span class="chart-title">✦ Gemini AI Sleep Analysis</span>
-            </div>
-            <div class="setup-body" style="text-align: center; padding: var(--sp-6) var(--sp-4);">
-              <p style="margin-bottom: var(--sp-4); color: var(--mid-light);">Generate an automated clinical-style AI analysis of this sleep session.</p>
-              <button class="btn btn-primary" id="analyze-ai-btn">✦ Analyze with Gemini</button>
-            </div>
-          `;
-          document.getElementById('analyze-ai-btn')?.addEventListener('click', (e) => runAnalysis(e.target));
-        } else {
-          panel.innerHTML = `
-            <div class="chart-header">
-              <span class="chart-title">✦ Gemini AI Sleep Analysis</span>
-            </div>
-            <div class="setup-body" style="text-align: center; padding: var(--sp-6) var(--sp-4);">
-              <p style="margin-bottom: var(--sp-4); color: var(--mid);">Gemini API Key is not configured. Add your key in the Setup page to enable AI analysis.</p>
-              <a href="#/setup" class="btn" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Configure Key</a>
-            </div>
-          `;
-        }
-      } catch (err) {
-        console.error('Delete AI analysis failed:', err);
-        alert('Failed to delete AI analysis from database.');
-        renderAIPanel(session.aiAnalysis);
-      }
-    };
+      modelSel?.addEventListener('change', (e) => {
+        setSelectedModel(activeProvider, e.target.value);
+      });
 
-    analyzeBtn?.addEventListener('click', (e) => runAnalysis(e.target));
-    regenerateBtn?.addEventListener('click', (e) => runAnalysis(e.target));
-    deleteAIBtn?.addEventListener('click', handleDelete);
-  };
+      thinkSel?.addEventListener('change', (e) => {
+        setThinkingBudget(activeProvider, parseInt(e.target.value, 10));
+      });
 
-  bindAIEventListeners();
+      document.getElementById('analyze-ai-btn')?.addEventListener('click', () => runAnalysis());
+    } else {
+      const providerName = activeProvider === 'claude' ? 'Anthropic Claude' : 'Google Gemini';
+      panel.innerHTML = `
+        <div class="chart-header">
+          <span class="chart-title">✦ AI Sleep Analysis</span>
+        </div>
+        <div class="setup-body" style="text-align: center; padding: var(--sp-6) var(--sp-4);">
+          <p style="margin-bottom: var(--sp-4); color: var(--mid);">
+            ${providerName} API Key is not configured. Add your key in the Setup page to enable automated clinical reports.
+          </p>
+          <a href="#/setup" class="btn" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">
+            Configure AI Keys
+          </a>
+        </div>
+      `;
+    }
+  }
+
+  async function runAnalysis() {
+    const panel = document.getElementById('ai-analysis-panel');
+    if (!panel) return;
+
+    const provider = getActiveProvider();
+    const model = getSelectedModel(provider);
+    const thinkingBudget = getThinkingBudget(provider);
+    const providerName = provider === 'claude' ? 'Anthropic Claude' : 'Google Gemini';
+
+    panel.innerHTML = `
+      <div class="chart-header">
+        <span class="chart-title">✦ AI Sleep Analysis</span>
+      </div>
+      <div class="setup-body" style="text-align: center; padding: var(--sp-8) var(--sp-4); font-family: var(--font-mono); color: var(--mid);">
+        <div class="loading-spinner" style="margin: 0 auto var(--sp-4) auto;"></div>
+        <div style="color: var(--white); font-weight: 600; margin-bottom: 6px;">[ Synthesizing sleep vitals with ${providerName}... ]</div>
+        <div style="font-size: var(--fs-xs); color: var(--mid);">Model: ${model} ${thinkingBudget > 0 ? '· Extended Reasoning Active' : ''}</div>
+      </div>
+    `;
+
+    try {
+      const result = await generateSleepAnalysis(sessionData, {
+        provider,
+        model,
+        thinkingBudget,
+        force: true,
+      });
+
+      saveAIAnalysis(session.id, result);
+      session.aiAnalysis = result;
+      renderAIPanel(result);
+    } catch (err) {
+      console.error('AI analysis failed:', err);
+      panel.innerHTML = `
+        <div class="chart-header">
+          <span class="chart-title">✦ AI Sleep Analysis</span>
+        </div>
+        <div class="setup-body" style="text-align: center; padding: var(--sp-6) var(--sp-4);">
+          <p style="color: var(--alert-red); margin-bottom: var(--sp-4);">Analysis Failed: ${err.message}</p>
+          <div style="display: flex; gap: var(--sp-2); justify-content: center;">
+            <button class="btn" id="retry-ai-btn">Try Again</button>
+            <a href="#/setup" class="btn" style="text-decoration: none;">Check API Key</a>
+          </div>
+        </div>
+      `;
+      document.getElementById('retry-ai-btn')?.addEventListener('click', () => runAnalysis());
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm('Are you sure you want to delete this AI analysis?')) return;
+    deleteAIAnalysis(session.id);
+    session.aiAnalysis = null;
+    renderAIPanel(null);
+  }
 }
 
 export function destroyReport() {

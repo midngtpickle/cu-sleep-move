@@ -3636,3 +3636,110 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     display: none;
   }
 }
+
+/* ============================================================
+   AI SLEEP ANALYST (GEMINI & CLAUDE)
+   ============================================================ */
+
+.ai-provider-tabs {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.ai-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--mid);
+  background: var(--dark-2);
+  border: 1px solid var(--dark-4);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.ai-tab-btn:hover {
+  color: var(--white);
+  background: var(--dark-3);
+}
+
+.ai-tab-btn.active {
+  color: var(--white);
+  background: var(--dark-4);
+  border-color: var(--mid-dark);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.08);
+}
+
+.ai-badge {
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  color: #c084fc;
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* Reasoning Accordion */
+.ai-reasoning-accordion {
+  margin-bottom: var(--sp-4);
+  background: rgba(168, 85, 247, 0.05);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.ai-reasoning-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: #c084fc;
+  cursor: pointer;
+  user-select: none;
+  background: rgba(168, 85, 247, 0.08);
+}
+
+.ai-reasoning-summary:hover {
+  background: rgba(168, 85, 247, 0.15);
+}
+
+.ai-reasoning-tag {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--mid);
+  background: var(--dark-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.ai-reasoning-body {
+  padding: var(--sp-3);
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--dark-1);
+  border-top: 1px solid rgba(168, 85, 247, 0.15);
+}
+
+.ai-reasoning-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--mid-light);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.ai-divider {
+  border: none;
+  border-top: var(--border-subtle);
+  margin: var(--sp-4) 0;
+}
+

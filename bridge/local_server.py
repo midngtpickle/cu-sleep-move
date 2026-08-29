@@ -17,6 +17,8 @@ import mimetypes
 import os
 import queue
 import threading
+import urllib.error
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 from typing import Any, Dict, Optional, Set
@@ -106,7 +108,9 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
         bridge = LocalAPIHandler.bridge
 
         try:
-            if path == "/api/simulation/start":
+            if path in ("/api/ai/test", "/api/ai/analyze"):
+                self._handle_ai_request(path)
+            elif path == "/api/simulation/start":
                 if bridge:
                     bridge.start_simulation()
                     self._send_json({"status": "ok", "simulating": True})
@@ -132,6 +136,155 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
                 self._send_error_json(404, f"Unknown POST endpoint: {path}")
         except (BrokenPipeError, ConnectionResetError):
             pass
+
+    # ── AI Proxy Handlers ─────────────────────────────────────
+
+    def _handle_ai_request(self, path: str):
+        """Zero-dependency proxy for Anthropic Claude and Google Gemini."""
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length == 0:
+            self._send_error_json(400, "Missing JSON payload")
+            return
+
+        try:
+            body = json.loads(self.rfile.read(content_length).decode("utf-8"))
+        except Exception as e:
+            self._send_error_json(400, f"Invalid JSON payload: {e}")
+            return
+
+        provider = str(body.get("provider") or "gemini").lower().strip()
+        api_key = str(body.get("api_key") or "").strip()
+        model = str(body.get("model") or "").strip()
+        thinking_budget = int(body.get("thinking_budget") or 0)
+        is_test = (path == "/api/ai/test")
+
+        if not api_key:
+            self._send_error_json(400, "API key is required")
+            return
+
+        prompt = "Respond with 'OK' if you receive this." if is_test else body.get("prompt", "")
+        system_prompt = body.get("system_prompt", "")
+
+        try:
+            if provider == "claude":
+                result = self._call_claude(api_key, model or "claude-3-7-sonnet-20250219", prompt, system_prompt, thinking_budget, is_test)
+            elif provider == "gemini":
+                result = self._call_gemini(api_key, model or "gemini-2.5-flash", prompt, system_prompt, thinking_budget, is_test)
+            else:
+                self._send_error_json(400, f"Unsupported AI provider: {provider}")
+                return
+
+            self._send_json(result)
+        except urllib.error.HTTPError as e:
+            err_body = e.read().decode("utf-8", errors="ignore")
+            try:
+                err_json = json.loads(err_body)
+                msg = (err_json.get("error", {}).get("message")
+                       or err_json.get("message")
+                       or err_body)
+            except Exception:
+                msg = err_body or str(e)
+            self._send_error_json(e.code, f"{provider.capitalize()} API Error ({e.code}): {msg}")
+        except Exception as e:
+            self._send_error_json(500, f"{provider.capitalize()} Request Error: {str(e)}")
+
+    def _call_claude(self, api_key: str, model: str, prompt: str, system_prompt: str, thinking_budget: int, is_test: bool) -> dict:
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+        }
+
+        payload: Dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+
+        if system_prompt:
+            payload["system"] = system_prompt
+
+        # Extended thinking on Claude 3.7+
+        use_thinking = thinking_budget > 0 and "claude-3-7" in model.lower() and not is_test
+        if use_thinking:
+            payload["max_tokens"] = max(4096, thinking_budget + 2048)
+            payload["thinking"] = {
+                "type": "enabled",
+                "budget_tokens": thinking_budget,
+            }
+        else:
+            payload["max_tokens"] = 64 if is_test else 4096
+            payload["temperature"] = 0.3
+
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        thinking_text = ""
+        text_content = ""
+        for block in data.get("content", []):
+            btype = block.get("type")
+            if btype == "thinking":
+                thinking_text += block.get("thinking", "")
+            elif btype == "text":
+                text_content += block.get("text", "")
+
+        return {
+            "provider": "claude",
+            "model": model,
+            "text": text_content.strip(),
+            "thinking": thinking_text.strip() if thinking_text else None,
+            "usage": data.get("usage", {}),
+            "valid": True,
+        }
+
+    def _call_gemini(self, api_key: str, model: str, prompt: str, system_prompt: str, thinking_budget: int, is_test: bool) -> dict:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        headers = {"Content-Type": "application/json"}
+
+        gen_config: Dict[str, Any] = {
+            "temperature": 0.3,
+            "maxOutputTokens": 64 if is_test else 4096,
+        }
+
+        # Thinking config for Gemini 2.0 / 2.5 models
+        if thinking_budget > 0 and not is_test:
+            gen_config["thinkingConfig"] = {"thinkingBudget": thinking_budget}
+
+        payload: Dict[str, Any] = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": gen_config,
+        }
+
+        if system_prompt:
+            payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
+
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+
+        candidates = data.get("candidates", [])
+        if not candidates:
+            raise ValueError("No response candidates returned by Gemini API")
+
+        parts = candidates[0].get("content", {}).get("parts", [])
+        text_content = ""
+        thinking_text = ""
+
+        for part in parts:
+            if "thought" in part:
+                thinking_text += part.get("thought", "")
+            if "text" in part:
+                text_content += part.get("text", "")
+
+        return {
+            "provider": "gemini",
+            "model": model,
+            "text": text_content.strip(),
+            "thinking": thinking_text.strip() if thinking_text else None,
+            "usage": data.get("usageMetadata", {}),
+            "valid": True,
+        }
 
     # ── 1. SSE stream ─────────────────────────────────────────
 

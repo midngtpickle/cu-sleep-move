@@ -98,15 +98,26 @@ const aiKey = sessionId => `ai_analysis_${sessionId}`;
 
 export function getAIAnalysis(sessionId) {
   try {
-    return localStorage.getItem(aiKey(sessionId)) || null;
+    const raw = localStorage.getItem(aiKey(sessionId));
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && parsed.text) {
+        return parsed;
+      }
+    } catch {
+      // Legacy plain markdown string
+    }
+    return { text: raw, provider: 'ai', model: '' };
   } catch {
     return null;
   }
 }
 
-export function saveAIAnalysis(sessionId, text) {
+export function saveAIAnalysis(sessionId, data) {
   try {
-    localStorage.setItem(aiKey(sessionId), text);
+    const val = typeof data === 'object' ? JSON.stringify(data) : String(data);
+    localStorage.setItem(aiKey(sessionId), val);
   } catch (e) {
     console.warn('[Sessions] Could not persist AI analysis:', e);
   }

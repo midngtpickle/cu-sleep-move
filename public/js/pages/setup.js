@@ -251,59 +251,101 @@ python3 bridge.py --host 0.0.0.0
         </div>
       </details>
 
-      <!-- Gemini AI Settings -->
-      <details class="setup-section" id="gemini-setup-section">
+      <!-- AI Sleep Analyst Settings (Gemini & Claude) -->
+      <details class="setup-section" id="ai-setup-section" open>
         <summary class="setup-heading">
           <span class="step-number">✦</span>
-          Optional: Gemini AI Sleep Analyst
+          AI Sleep Analyst Agent (Gemini &amp; Claude)
         </summary>
         <div class="setup-body">
-          <p>Enable automated, clinical-style AI analysis of your sleep sessions by providing a Google AI Studio API key.</p>
-          <ol>
-            <li>Get a free Gemini API key from <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Google AI Studio</a>.</li>
-            <li>Paste your key in the input field below.</li>
-            <li>The key will be saved <strong>locally</strong> in your browser's secure <code>localStorage</code> and is only sent directly to Google's API to analyze your vitals data.</li>
-          </ol>
-          
-          <div class="info-box">
-            <strong>Privacy Note:</strong> Sleep analysis transmits only numeric aggregates (vital ranges, duration, apnea counts) to the Gemini API. No names, email addresses, or other PII are sent.
+          <p>Automate clinical-style analysis of your overnight sleep sessions with extended reasoning and thinking capabilities using your choice of AI provider.</p>
+
+          <!-- Provider Tabs -->
+          <div class="ai-provider-tabs" style="display: flex; gap: var(--sp-2); margin-bottom: var(--sp-4);">
+            <button type="button" class="ai-tab-btn active" id="tab-gemini" data-provider="gemini">
+              <span class="ai-tab-icon">✦</span> Google Gemini
+            </button>
+            <button type="button" class="ai-tab-btn" id="tab-claude" data-provider="claude">
+              <span class="ai-tab-icon">✳</span> Anthropic Claude
+            </button>
           </div>
 
-          <div style="margin-top: var(--sp-4);">
-            <label for="gemini-key-input" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-2); text-transform: uppercase; letter-spacing: 0.05em;">Gemini API Key</label>
-            <div style="display: flex; gap: var(--sp-2); max-width: 500px;">
-              <input type="password" id="gemini-key-input" placeholder="Paste AI Studio Key (AIzaSy...)" style="flex: 1; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-family: var(--font-mono); font-size: var(--fs-sm);" />
-              <button id="gemini-save-btn" class="btn btn-primary">Save</button>
+          <div id="ai-provider-info" class="ai-provider-desc" style="font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-3);">
+            <!-- Populated dynamically -->
+          </div>
+
+          <div class="ai-settings-grid" style="display: flex; flex-direction: column; gap: var(--sp-3); max-width: 600px;">
+            <!-- API Key -->
+            <div>
+              <label for="ai-key-input" id="ai-key-label" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase; letter-spacing: 0.05em;">API Key</label>
+              <div style="display: flex; gap: var(--sp-2);">
+                <input type="password" id="ai-key-input" placeholder="Paste API Key..." style="flex: 1; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-family: var(--font-mono); font-size: var(--fs-sm);" />
+                <button id="ai-save-btn" class="btn btn-primary">Save Key</button>
+              </div>
             </div>
-            <div style="margin-top: var(--sp-3); display: flex; gap: var(--sp-2); align-items: center;">
-              <button id="gemini-test-btn" class="btn">Test Key</button>
-              <button id="gemini-clear-btn" class="btn btn-danger">Clear Key</button>
-              <span id="gemini-status-msg" style="font-size: var(--fs-xs); font-family: var(--font-mono); margin-left: var(--sp-2);"></span>
+
+            <!-- Model Selection -->
+            <div>
+              <label for="ai-model-select" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase; letter-spacing: 0.05em;">Model</label>
+              <select id="ai-model-select" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-size: var(--fs-sm);"></select>
             </div>
+
+            <!-- Extended Thinking / Reasoning Budget -->
+            <div id="ai-thinking-row">
+              <label for="ai-thinking-select" style="display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase; letter-spacing: 0.05em;">
+                <span>Extended Thinking &amp; Reasoning</span>
+                <span id="ai-thinking-badge" style="color: #c084fc; font-weight: 600;">Hybrid Reasoning</span>
+              </label>
+              <select id="ai-thinking-select" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-size: var(--fs-sm);"></select>
+            </div>
+
+            <!-- Actions & Status -->
+            <div style="display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; margin-top: var(--sp-2);">
+              <button id="ai-test-btn" class="btn">Test Key &amp; Model</button>
+              <button id="ai-clear-btn" class="btn btn-danger">Clear Key</button>
+              <span id="ai-status-msg" style="font-size: var(--fs-xs); font-family: var(--font-mono); margin-left: var(--sp-2);"></span>
+            </div>
+          </div>
+
+          <div class="info-box" style="margin-top: var(--sp-5);">
+            <strong>Privacy Note:</strong> All API keys are stored locally in your browser's <code>localStorage</code>. Only aggregated numeric metrics (vital ranges, duration, apnea counts) are transmitted to the chosen model for analysis.
           </div>
         </div>
       </details>
     </div>
   `;
 
-  // Bind Gemini AI Settings logic
-  const keyInput = document.getElementById('gemini-key-input');
-  const saveBtn = document.getElementById('gemini-save-btn');
-  const testBtn = document.getElementById('gemini-test-btn');
-  const clearBtn = document.getElementById('gemini-clear-btn');
-  const statusMsg = document.getElementById('gemini-status-msg');
+  // Bind AI Settings logic
+  const {
+    AI_PROVIDERS,
+    AI_MODELS,
+    THINKING_BUDGETS,
+    getActiveProvider,
+    setActiveProvider,
+    getStoredApiKey,
+    setStoredApiKey,
+    clearStoredApiKey,
+    getSelectedModel,
+    setSelectedModel,
+    getThinkingBudget,
+    setThinkingBudget,
+    testApiKey,
+  } = await import('../services/ai.js');
 
-  // Load service helpers
-  const { getStoredApiKey, setStoredApiKey, clearStoredApiKey, testGeminiKey } = await import('../services/gemini.js');
+  let currentProvider = getActiveProvider();
 
-  // Initial load
-  const storedKey = getStoredApiKey();
-  if (storedKey) {
-    if (keyInput) keyInput.value = storedKey;
-    showStatus('Key configured & saved.', 'var(--white)');
-  } else {
-    showStatus('No key configured.', 'var(--mid)');
-  }
+  const tabGemini = document.getElementById('tab-gemini');
+  const tabClaude = document.getElementById('tab-claude');
+  const providerInfo = document.getElementById('ai-provider-info');
+  const keyInput = document.getElementById('ai-key-input');
+  const keyLabel = document.getElementById('ai-key-label');
+  const modelSelect = document.getElementById('ai-model-select');
+  const thinkingSelect = document.getElementById('ai-thinking-select');
+  const thinkingRow = document.getElementById('ai-thinking-row');
+  const saveBtn = document.getElementById('ai-save-btn');
+  const testBtn = document.getElementById('ai-test-btn');
+  const clearBtn = document.getElementById('ai-clear-btn');
+  const statusMsg = document.getElementById('ai-status-msg');
 
   function showStatus(text, color) {
     if (statusMsg) {
@@ -312,13 +354,83 @@ python3 bridge.py --host 0.0.0.0
     }
   }
 
+  function syncProviderUI() {
+    tabGemini.classList.toggle('active', currentProvider === AI_PROVIDERS.GEMINI);
+    tabClaude.classList.toggle('active', currentProvider === AI_PROVIDERS.CLAUDE);
+
+    if (currentProvider === AI_PROVIDERS.CLAUDE) {
+      providerInfo.innerHTML = 'Get an API key from the <a href="https://console.anthropic.com/" target="_blank" rel="noopener" style="color: var(--white); text-decoration: underline;">Anthropic Console</a>. Features Claude 3.7 Sonnet with extended thinking.';
+      keyLabel.textContent = 'Anthropic Claude API Key';
+      keyInput.placeholder = 'Paste Anthropic API Key (sk-ant-...)';
+    } else {
+      providerInfo.innerHTML = 'Get a free API key from <a href="https://aistudio.google.com/" target="_blank" rel="noopener" style="color: var(--white); text-decoration: underline;">Google AI Studio</a>. Features Gemini 2.5 Flash & Pro with reasoning synthesis.';
+      keyLabel.textContent = 'Google Gemini API Key';
+      keyInput.placeholder = 'Paste Gemini API Key (AIzaSy...)';
+    }
+
+    // Populate Key
+    const stored = getStoredApiKey(currentProvider);
+    keyInput.value = stored || '';
+    if (stored) {
+      showStatus('Key configured & saved.', 'var(--white)');
+    } else {
+      showStatus('No key configured for this provider.', 'var(--mid)');
+    }
+
+    // Populate Models
+    const models = AI_MODELS[currentProvider] || [];
+    const selectedModel = getSelectedModel(currentProvider);
+    modelSelect.innerHTML = models.map(m =>
+      `<option value="${m.id}"${m.id === selectedModel ? ' selected' : ''}>${m.name} (${m.tag})</option>`
+    ).join('');
+
+    // Populate Thinking Budgets
+    const currentBudget = getThinkingBudget(currentProvider);
+    thinkingSelect.innerHTML = THINKING_BUDGETS.map(b =>
+      `<option value="${b.value}"${b.value === currentBudget ? ' selected' : ''}>${b.label}</option>`
+    ).join('');
+
+    updateThinkingVisibility();
+  }
+
+  function updateThinkingVisibility() {
+    const selectedModelId = modelSelect.value;
+    const model = (AI_MODELS[currentProvider] || []).find(m => m.id === selectedModelId);
+    if (model && model.supportsThinking) {
+      thinkingRow.style.display = 'block';
+    } else {
+      thinkingRow.style.display = 'block'; // Keep visible to allow setting for thinking models
+    }
+  }
+
+  tabGemini?.addEventListener('click', () => {
+    currentProvider = AI_PROVIDERS.GEMINI;
+    setActiveProvider(currentProvider);
+    syncProviderUI();
+  });
+
+  tabClaude?.addEventListener('click', () => {
+    currentProvider = AI_PROVIDERS.CLAUDE;
+    setActiveProvider(currentProvider);
+    syncProviderUI();
+  });
+
+  modelSelect?.addEventListener('change', (e) => {
+    setSelectedModel(currentProvider, e.target.value);
+    updateThinkingVisibility();
+  });
+
+  thinkingSelect?.addEventListener('change', (e) => {
+    setThinkingBudget(currentProvider, parseInt(e.target.value, 10));
+  });
+
   saveBtn?.addEventListener('click', () => {
     const key = keyInput ? keyInput.value.trim() : '';
     if (!key) {
       showStatus('Please enter a key.', 'var(--alert-red)');
       return;
     }
-    setStoredApiKey(key);
+    setStoredApiKey(currentProvider, key);
     showStatus('Key saved successfully.', 'var(--white)');
   });
 
@@ -331,11 +443,11 @@ python3 bridge.py --host 0.0.0.0
     showStatus('Testing connection...', 'var(--mid)');
     testBtn.disabled = true;
     try {
-      const working = await testGeminiKey(key);
+      const working = await testApiKey(currentProvider, key, modelSelect.value);
       if (working) {
-        showStatus('Connection successful! Key is valid.', 'var(--white)');
+        showStatus('Connection successful! Key and model verified.', 'var(--white)');
       } else {
-        showStatus('API did not return success response.', 'var(--alert-red)');
+        showStatus('API response error.', 'var(--alert-red)');
       }
     } catch (err) {
       showStatus(`Error: ${err.message}`, 'var(--alert-red)');
@@ -345,8 +457,11 @@ python3 bridge.py --host 0.0.0.0
   });
 
   clearBtn?.addEventListener('click', () => {
-    clearStoredApiKey();
+    clearStoredApiKey(currentProvider);
     if (keyInput) keyInput.value = '';
     showStatus('Key cleared.', 'var(--mid)');
   });
+
+  // Initial render
+  syncProviderUI();
 }

@@ -178,10 +178,10 @@ it does not reflash the firmware.
 * **Presence and motion** — room state (*Quiet*, *Ambient*, *Active*, *Agitated*), occupancy, fall events, idle tracking.
 * **Nightly reports** — one run of the bridge is one night. Start it at bedtime, stop it in the morning, and it appears as a session with overnight charts and summary statistics.
 * **Sensing console** — a live pulse field, 30-minute activity heatstrip, and event log covering falls, activity bursts, idle thresholds and calibration drift, with optional browser notifications.
-* **Optional AI analysis** — bring your own Google Gemini key to generate a clinical-style write-up of a night. Off by default; only numeric aggregates are ever sent.
+* **Optional AI analysis** — bring your own Google Gemini or Anthropic Claude key to generate clinical-style evaluations of a night, with support for latest models (Claude 3.7 Sonnet with Extended Thinking, Gemini 2.5 Pro / Flash). Off by default; only numeric aggregates are ever sent.
 
 Everything runs and stays on your machine. The only outbound request the app can
-make is to Gemini, and only when you add a key and click Analyze.
+make is to your configured AI provider, and only when you click Analyze.
 
 ---
 
@@ -195,7 +195,7 @@ make is to Gemini, and only when you add a key and click Analyze.
                                 ▼
                     ┌────────────────────────┐
                     │      bridge.py         │  apnea detection · batching ·
-                    │  (Python stdlib only)  │  semantic state derivation
+                    │  (Python stdlib only)  │  semantic state derivation · AI proxy
                     └─────┬────────────┬─────┘
                           │            │
                   writes  │            │  serves
@@ -221,11 +221,11 @@ One process, one database file, one port.
 | Layer | Technology |
 |---|---|
 | **Sensor** | ESP32-C6 DevKit running [RuView](https://github.com/ruvnet/RuView) CSI firmware |
-| **Bridge & server** | Python 3.9+, standard library only (`socket`, `sqlite3`, `http.server`) |
+| **Bridge & server** | Python 3.9+, standard library only (`socket`, `sqlite3`, `http.server`, `urllib`) |
 | **Storage** | SQLite — a single `vitals.db` file |
 | **Transport** | UDP in, Server-Sent Events + JSON out |
 | **Frontend** | HTML5 / CSS3 / ES modules, Chart.js 4 (vendored locally) |
-| **AI (optional)** | Google Gemini `gemini-1.5-flash`, key stored in your browser |
+| **AI (optional)** | Anthropic Claude (Claude 3.7 Sonnet with Extended Thinking) & Google Gemini (2.5 Pro / Flash) |
 
 ---
 
