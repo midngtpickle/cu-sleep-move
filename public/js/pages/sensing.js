@@ -26,8 +26,14 @@ let unsubLive = null;
 let unsubEvents = null;
 let pulseRafId = null;
 let heatRafId = null;
+let oscilloRafId = null;
+let meshRafId = null;
 let resizeHandlers = [];
 let selectedNode = 'node-01';
+let currentSenseView = 'pulse'; // 'pulse' | 'mesh'
+let oscilloFrozen = false;
+let oscilloGain = 1.0;
+let audioCtx = null;
 
 // Pulse field state
 const fieldState = {
@@ -37,6 +43,8 @@ const fieldState = {
   fall: false,
   roomState: 'Quiet',
   bursting: false,
+  breathingRate: 14.5,
+  heartRate: 68.0,
   ripples: [],
   shockwaves: [],
 };
@@ -45,8 +53,49 @@ const fieldState = {
 const HEAT_WINDOW_S = 1800;
 const heatBuffer = [];   // {t, motion}
 
+// Oscilloscope buffer
+const oscilloBuffer = [];
+const OSCILLO_MAX_POINTS = 300;
+
 let seenEventIds = new Set();
 let initialEventsLoaded = false;
+
+export function playFallAlarmSound() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const now = audioCtx.currentTime;
+    const osc1 = audioCtx.createOscillator();
+    const osc2 = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(880, now);
+    osc1.frequency.setValueAtTime(440, now + 0.15);
+    osc1.frequency.setValueAtTime(880, now + 0.30);
+    osc1.frequency.setValueAtTime(440, now + 0.45);
+
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(440, now);
+    osc2.frequency.setValueAtTime(220, now + 0.15);
+    osc2.frequency.setValueAtTime(440, now + 0.30);
+    osc2.frequency.setValueAtTime(220, now + 0.45);
+
+    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.60);
+
+    osc1.connect(gain);
+    osc2.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.60);
+    osc2.stop(now + 0.60);
+  } catch (e) {
+    console.warn('[Sensing] Audio alarm playback error:', e);
+  }
+}
 
 /**
  * Render the sensing console.
@@ -73,11 +122,18 @@ export async function renderSensing(container) {
       <div class="sense-main">
         <div class="pulse-panel">
           <div class="pulse-header">
-            <span class="pulse-title">PULSE FIELD</span>
-            <span class="pulse-sub" id="pulse-sub">Listening…</span>
+            <div class="pulse-header-left">
+              <span class="pulse-title" id="pulse-panel-title">PULSE FIELD</span>
+              <span class="pulse-sub" id="pulse-sub">Listening…</span>
+            </div>
+            <div class="sense-view-tabs">
+              <button class="sense-tab-btn active" id="tab-pulse-view">◈ Pulse</button>
+              <button class="sense-tab-btn" id="tab-mesh-view">⛶ 2D Room Mesh</button>
+            </div>
           </div>
           <div class="pulse-canvas-wrap">
             <canvas id="pulse-canvas"></canvas>
+            <canvas id="mesh-canvas" style="display: none;"></canvas>
           </div>
         </div>
 
@@ -93,6 +149,27 @@ export async function renderSensing(container) {
           ${semanticRow('Calibration', 'sem-cal',  'Stable')}
           ${semanticRow('Signal',      'sem-sig',  '—')}
           ${semanticRow('Node',        'sem-node', selectedNode)}
+        </div>
+      </div>
+
+      <!-- Respiration Oscilloscope -->
+      <div class="oscillo-panel">
+        <div class="oscillo-header">
+          <div class="oscillo-title-group">
+            <span class="oscillo-title">RESPIRATION OSCILLOSCOPE</span>
+            <span class="oscillo-sub" id="oscillo-rate">14.5 RPM (0.24 Hz)</span>
+            <span class="oscillo-phase" id="oscillo-phase">RESTING</span>
+          </div>
+          <div class="oscillo-controls">
+            <label class="oscillo-ctrl-item">
+              <span>Gain:</span>
+              <input type="range" id="oscillo-gain" min="0.5" max="2.5" step="0.1" value="1.0" style="width: 70px; accent-color: var(--white);">
+            </label>
+            <button class="btn btn-sm" id="oscillo-freeze-btn" style="padding: 2px 8px; font-size: 11px;">Freeze</button>
+          </div>
+        </div>
+        <div class="oscillo-canvas-wrap">
+          <canvas id="oscillo-canvas"></canvas>
         </div>
       </div>
 
@@ -132,11 +209,13 @@ export async function renderSensing(container) {
             <input type="checkbox" id="set-notify-fall" ${settings.notifyOnFall ? 'checked' : ''}>
           </label>
           <label class="drawer-row">
-            <span class="drawer-label">Notify on idle</span>
-            <input type="checkbox" id="set-notify-idle" ${settings.notifyOnIdle ? 'checked' : ''}>
+            <span class="drawer-label">Audible sound alarm</span>
+            <input type="checkbox" id="set-sound-alarm" ${settings.soundAlarm !== false ? 'checked' : ''}>
           </label>
-          <p class="drawer-note">The idle threshold is enforced by the bridge — set
-            <code>idle_alert_seconds</code> in <code>bridge/config.json</code> and restart it to apply.</p>
+          <div style="margin-top: var(--sp-2);">
+            <button class="btn btn-sm" id="test-sound-btn" style="width: 100%; font-size: 11px;">▶ Test Alarm Sound</button>
+          </div>
+          <p class="drawer-note" style="margin-top: var(--sp-4);">Configure Home Assistant MQTT &amp; Emergency Webhooks in the <a href="#/setup" style="color: var(--white); text-decoration: underline;">Setup Page</a>.</p>
           <button class="drawer-save" id="drawer-save">Save</button>
         </div>
       </aside>
@@ -145,6 +224,8 @@ export async function renderSensing(container) {
 
   await populateNodes();
   startPulseLoop();
+  startMeshLoop();
+  startOscilloLoop();
   startHeatLoop();
   bindUI();
 
@@ -311,6 +392,283 @@ function drawFieldGrid(ctx, W, H, frame) {
   }
 }
 
+/* ─── 2D Room Mesh Visualizer ────────────────────────────── */
+
+function startMeshLoop() {
+  const canvas = document.getElementById('mesh-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const resize = () => {
+    const parent = canvas.parentElement;
+    if (!parent) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = parent.clientWidth * dpr;
+    canvas.height = parent.clientHeight * dpr;
+    canvas.style.width = parent.clientWidth + 'px';
+    canvas.style.height = parent.clientHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize();
+  onResize(resize);
+
+  let meshFrame = 0;
+
+  function draw() {
+    if (currentSenseView !== 'mesh') {
+      meshRafId = requestAnimationFrame(draw);
+      return;
+    }
+
+    const W = canvas.width / (window.devicePixelRatio || 1);
+    const H = canvas.height / (window.devicePixelRatio || 1);
+
+    ctx.fillStyle = 'rgba(10, 10, 10, 0.25)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Architectural room boundary
+    const margin = 24;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(margin, margin, W - margin * 2, H - margin * 2);
+
+    // Room grid lines
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    for (let x = margin + 20; x < W - margin; x += 24) {
+      ctx.beginPath();
+      ctx.moveTo(x, margin);
+      ctx.lineTo(x, H - margin);
+      ctx.stroke();
+    }
+    for (let y = margin + 20; y < H - margin; y += 24) {
+      ctx.beginPath();
+      ctx.moveTo(margin, y);
+      ctx.lineTo(W - margin, y);
+      ctx.stroke();
+    }
+
+    // Bed zone representation
+    const bedW = W * 0.38;
+    const bedH = H * 0.46;
+    const bedX = (W - bedW) / 2;
+    const bedY = (H - bedH) / 2 - 8;
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.setLineDash([4, 4]);
+    ctx.fillRect(bedX, bedY, bedW, bedH);
+    ctx.strokeRect(bedX, bedY, bedW, bedH);
+    ctx.setLineDash([]);
+
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.fillText('BED ZONE', bedX + 8, bedY + 16);
+
+    // Sensor Nodes definition (3-point multistatic mesh)
+    const nodes = [
+      { id: 'node-01', name: 'Node 1 (Bed Left)',  x: bedX - 18,        y: bedY + bedH * 0.4 },
+      { id: 'node-02', name: 'Node 2 (Bed Right)', x: bedX + bedW + 18, y: bedY + bedH * 0.4 },
+      { id: 'node-03', name: 'Node 3 (Room Door)', x: W / 2,            y: H - margin - 12 },
+    ];
+
+    // Draw CSI link rays between nodes
+    ctx.lineWidth = 1;
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const p1 = nodes[i], p2 = nodes[j];
+        const rayPhase = (meshFrame / 40) + (i + j);
+        const rayAlpha = 0.10 + Math.sin(rayPhase) * 0.06;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${rayAlpha})`;
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.stroke();
+      }
+    }
+
+    // Render Subject Location / Heat Blob
+    if (fieldState.presence) {
+      const subX = W / 2 + (Math.sin(meshFrame / 75) * 8);
+      const subY = bedY + bedH * 0.45 + (Math.cos(meshFrame / 90) * 6);
+      const subR = 18 + Math.sin(meshFrame / 20) * 4;
+
+      const grad = ctx.createRadialGradient(subX, subY, 2, subX, subY, subR * 2.2);
+      if (fieldState.fall) {
+        grad.addColorStop(0, 'rgba(255, 23, 68, 0.85)');
+        grad.addColorStop(0.5, 'rgba(255, 23, 68, 0.35)');
+        grad.addColorStop(1, 'rgba(255, 23, 68, 0)');
+      } else {
+        grad.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
+        grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.22)');
+        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      }
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(subX, subY, subR * 2.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = fieldState.fall ? '#ff1744' : '#ffffff';
+      ctx.beginPath();
+      ctx.arc(subX, subY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.fillText(
+        fieldState.fall ? '⚠ FALL DETECTED' : `SUBJECT (${(fieldState.confidence * 100).toFixed(0)}% CSI LOC)`,
+        subX + 10,
+        subY - 6
+      );
+    }
+
+    // Draw Sensor Nodes
+    nodes.forEach((n) => {
+      ctx.beginPath();
+      ctx.fillStyle = n.id === selectedNode ? '#ffffff' : '#666666';
+      ctx.arc(n.x, n.y, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.arc(n.x, n.y, 8, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fillText(n.name, n.x + 8, n.y + 3);
+    });
+
+    meshFrame++;
+    meshRafId = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+/* ─── Respiration Waveform (Oscilloscope) ────────────────── */
+
+function startOscilloLoop() {
+  const canvas = document.getElementById('oscillo-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  const resize = () => {
+    const parent = canvas.parentElement;
+    if (!parent) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = parent.clientWidth * dpr;
+    canvas.height = 96 * dpr;
+    canvas.style.width = parent.clientWidth + 'px';
+    canvas.style.height = '96px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize();
+  onResize(resize);
+
+  let t = 0;
+
+  function draw() {
+    const W = canvas.width / (window.devicePixelRatio || 1);
+    const H = canvas.height / (window.devicePixelRatio || 1);
+    const midY = H / 2;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Grid baseline and division ticks
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    ctx.lineTo(W, midY);
+    ctx.stroke();
+
+    for (let x = 0; x < W; x += 30) {
+      ctx.beginPath();
+      ctx.moveTo(x, midY - 3);
+      ctx.lineTo(x, midY + 3);
+      ctx.stroke();
+    }
+
+    if (!oscilloFrozen) {
+      const br = fieldState.breathingRate || 14.0;
+      const freqHz = br / 60.0;
+      const m = fieldState.motion;
+      const apnea = br < 6.0;
+
+      let val = 0;
+      if (apnea) {
+        val = (Math.random() - 0.5) * 0.05;
+      } else {
+        const primary = Math.sin(t * 2 * Math.PI * freqHz);
+        const harmonic = Math.sin(t * 4 * Math.PI * freqHz) * 0.15;
+        const noise = (Math.random() - 0.5) * (0.04 + m * 0.15);
+        val = (primary + harmonic + noise) * (fieldState.presence ? 1.0 : 0.2) * oscilloGain;
+      }
+
+      oscilloBuffer.push(val);
+      if (oscilloBuffer.length > OSCILLO_MAX_POINTS) {
+        oscilloBuffer.shift();
+      }
+
+      // Update Header readout
+      const rateEl = document.getElementById('oscillo-rate');
+      const phaseEl = document.getElementById('oscillo-phase');
+      if (rateEl) {
+        rateEl.textContent = apnea
+          ? '0.0 RPM (APNEA FLATLINE)'
+          : `${br.toFixed(1)} RPM (${freqHz.toFixed(2)} Hz)`;
+      }
+      if (phaseEl) {
+        if (apnea) {
+          phaseEl.textContent = 'APNEA FLATLINE';
+          phaseEl.style.color = '#ff1744';
+        } else if (val > 0.15) {
+          phaseEl.textContent = 'INHALATION';
+          phaseEl.style.color = '#00e676';
+        } else if (val < -0.15) {
+          phaseEl.textContent = 'EXHALATION';
+          phaseEl.style.color = '#29b6f6';
+        } else {
+          phaseEl.textContent = 'RESTING';
+          phaseEl.style.color = 'var(--text-dim)';
+        }
+      }
+
+      t += 1 / 60;
+    }
+
+    // Render continuous waveform path
+    if (oscilloBuffer.length > 1) {
+      const stepX = W / (OSCILLO_MAX_POINTS - 1);
+      const ampY = H * 0.38;
+
+      ctx.beginPath();
+      for (let i = 0; i < oscilloBuffer.length; i++) {
+        const x = i * stepX;
+        const y = midY - oscilloBuffer[i] * ampY;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+
+      ctx.strokeStyle = fieldState.fall
+        ? '#ff1744'
+        : (fieldState.breathingRate < 6 ? '#ff5252' : '#00e676');
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      // Glowing leading head
+      const headX = (oscilloBuffer.length - 1) * stepX;
+      const headY = midY - oscilloBuffer[oscilloBuffer.length - 1] * ampY;
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.beginPath();
+      ctx.arc(headX, headY, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    oscilloRafId = requestAnimationFrame(draw);
+  }
+  draw();
+}
+
 /* ─── Heatstrip Canvas ───────────────────────────────────── */
 
 function startHeatLoop() {
@@ -386,11 +744,18 @@ function onLiveData(data) {
   fieldState.presence = !!data.presence;
   fieldState.confidence = confidence;
   fieldState.roomState = roomState;
+  fieldState.breathingRate = +data.breathing_rate || 14.5;
+  fieldState.heartRate = +data.heart_rate || 68.0;
+
   if (data.activity_burst) fieldState.bursting = true;
   if (data.fall_detected && !fieldState.fall) {
     fieldState.fall = true;
     fieldState.shockwaves.push({ r: 0, alpha: 1 });
     document.getElementById('fall-banner')?.classList.add('visible');
+    const settings = loadSettings();
+    if (settings.soundAlarm !== false) {
+      playFallAlarmSound();
+    }
   }
 
   heatBuffer.push({ t: tSec, motion });
@@ -473,10 +838,12 @@ function renderEventLog(events) {
 }
 
 function maybeNotify(event, settings) {
-  if (!settings.notifications) return;
-  if (event.type === 'fall_detected' && settings.notifyOnFall) {
-    notify('⚠ Fall detected', event.message || 'Possible fall event registered.');
-  } else if (event.type === 'idle_threshold_crossed' && settings.notifyOnIdle) {
+  if (event.type === 'fall_detected') {
+    if (settings.soundAlarm !== false) playFallAlarmSound();
+    if (settings.notifications && settings.notifyOnFall) {
+      notify('⚠ Fall detected', event.message || 'Possible fall event registered.');
+    }
+  } else if (event.type === 'idle_threshold_crossed' && settings.notifications && settings.notifyOnIdle) {
     notify('Room idle', event.message || 'No movement for an extended period.');
   }
 }
@@ -505,6 +872,46 @@ function bindUI() {
     if (c) c.innerHTML = '<div class="event-empty">Cleared from view — still stored in vitals.db.</div>';
   });
 
+  // View switch tabs (Pulse vs 2D Mesh)
+  const pulseCanvas = document.getElementById('pulse-canvas');
+  const meshCanvas  = document.getElementById('mesh-canvas');
+  const tabPulse    = document.getElementById('tab-pulse-view');
+  const tabMesh     = document.getElementById('tab-mesh-view');
+  const panelTitle  = document.getElementById('pulse-panel-title');
+
+  tabPulse?.addEventListener('click', () => {
+    currentSenseView = 'pulse';
+    tabPulse.classList.add('active');
+    tabMesh?.classList.remove('active');
+    if (pulseCanvas) pulseCanvas.style.display = 'block';
+    if (meshCanvas)  meshCanvas.style.display  = 'none';
+    if (panelTitle)  panelTitle.textContent = 'PULSE FIELD';
+  });
+
+  tabMesh?.addEventListener('click', () => {
+    currentSenseView = 'mesh';
+    tabMesh.classList.add('active');
+    tabPulse?.classList.remove('active');
+    if (pulseCanvas) pulseCanvas.style.display = 'none';
+    if (meshCanvas)  meshCanvas.style.display  = 'block';
+    if (panelTitle)  panelTitle.textContent = '2D ROOM MESH';
+  });
+
+  // Oscilloscope controls
+  document.getElementById('oscillo-gain')?.addEventListener('input', (e) => {
+    oscilloGain = +e.target.value || 1.0;
+  });
+
+  const freezeBtn = document.getElementById('oscillo-freeze-btn');
+  freezeBtn?.addEventListener('click', () => {
+    oscilloFrozen = !oscilloFrozen;
+    freezeBtn.textContent = oscilloFrozen ? 'Resume' : 'Freeze';
+  });
+
+  document.getElementById('test-sound-btn')?.addEventListener('click', () => {
+    playFallAlarmSound();
+  });
+
   const drawer = document.getElementById('settings-drawer');
   const scrim  = document.getElementById('drawer-scrim');
   const open  = () => { drawer?.classList.add('open'); scrim?.classList.add('open'); };
@@ -519,7 +926,7 @@ function bindUI() {
       idleAlertMinutes: Math.max(1, Math.min(240, +document.getElementById('set-idle-min').value || 10)),
       notifications:   document.getElementById('set-notify').checked,
       notifyOnFall:    document.getElementById('set-notify-fall').checked,
-      notifyOnIdle:    document.getElementById('set-notify-idle').checked,
+      soundAlarm:      document.getElementById('set-sound-alarm')?.checked ?? true,
     };
     saveSettings(newSettings);
     if (newSettings.notifications) await ensureNotificationPermission();
@@ -561,11 +968,11 @@ export function destroySensing() {
   if (unsubEvents) { unsubEvents(); unsubEvents = null; }
 
   if (pulseRafId) cancelAnimationFrame(pulseRafId);
+  if (meshRafId) cancelAnimationFrame(meshRafId);
+  if (oscilloRafId) cancelAnimationFrame(oscilloRafId);
   if (heatRafId) cancelAnimationFrame(heatRafId);
-  pulseRafId = heatRafId = null;
+  pulseRafId = meshRafId = oscilloRafId = heatRafId = null;
 
-  // Both canvases register a resize listener; drop them or they accumulate
-  // one pair per visit to this page.
   for (const fn of resizeHandlers) window.removeEventListener('resize', fn);
   resizeHandlers = [];
 
@@ -573,6 +980,7 @@ export function destroySensing() {
   fieldState.shockwaves.length = 0;
   fieldState.fall = false;
   heatBuffer.length = 0;
+  oscilloBuffer.length = 0;
 
   seenEventIds = new Set();
   initialEventsLoaded = false;

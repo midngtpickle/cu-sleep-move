@@ -53,6 +53,13 @@ export async function renderReport(container) {
             <option value="">Loading sessions…</option>
           </select>
         </div>
+        <div class="control-group report-export-group">
+          <label class="control-label">Export Data</label>
+          <div style="display: flex; gap: var(--sp-2);">
+            <button class="btn btn-sm" id="export-csv-btn" title="Download session vitals as CSV">📥 CSV</button>
+            <button class="btn btn-sm" id="export-json-btn" title="Download clinical JSON dataset">📥 JSON</button>
+          </div>
+        </div>
       </div>
 
       <div id="report-content">
@@ -77,6 +84,20 @@ export async function renderReport(container) {
 
   document.getElementById('report-session')?.addEventListener('change', (e) => {
     if (e.target.value) loadReport(e.target.value);
+  });
+
+  document.getElementById('export-csv-btn')?.addEventListener('click', () => {
+    const sessId = document.getElementById('report-session')?.value;
+    if (sessId) {
+      window.location.href = `/api/export/session/${sessId}?format=csv`;
+    }
+  });
+
+  document.getElementById('export-json-btn')?.addEventListener('click', () => {
+    const sessId = document.getElementById('report-session')?.value;
+    if (sessId) {
+      window.location.href = `/api/export/session/${sessId}?format=json`;
+    }
   });
 
   await populateSessions();

@@ -34,6 +34,10 @@ from typing import Dict, List, Optional
 
 from storage import SQLiteStorage, BaseStorage
 from local_server import LocalAPIServer
+try:
+    from mqtt_publisher import MqttPublisher
+except ImportError:
+    MqttPublisher = None
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -754,19 +758,21 @@ class SmartBatcher:
 class LiveWriter:
     """
     Persists live vitals snapshot every update_interval seconds
-    and streams live updates to local SSE clients.
+    and streams live updates to local SSE clients and MQTT.
     """
 
     def __init__(self, storage: BaseStorage, update_interval: float = 1.0, verbose: bool = False,
                  deriver: Optional["SemanticDeriver"] = None,
                  event_writer: Optional["EventWriter"] = None,
-                 local_server: Optional[LocalAPIServer] = None):
+                 local_server: Optional[LocalAPIServer] = None,
+                 bridge: Optional[Any] = None):
         self.storage = storage
         self.update_interval = update_interval
         self.verbose = verbose
         self.deriver = deriver
         self.event_writer = event_writer
         self.local_server = local_server
+        self.bridge = bridge
         self._last_write: Dict[str, float] = {}
 
     def update(self, pkt: VitalsPacket, detector: ApneaDetector):
@@ -795,6 +801,10 @@ class LiveWriter:
         if self.event_writer is not None:
             for ev in events:
                 self.event_writer.write(ev)
+                if self.bridge and hasattr(self.bridge, "mqtt_publisher") and self.bridge.mqtt_publisher:
+                    self.bridge.mqtt_publisher.publish_event(node, ev.get("type", "sensing_event"), ev)
+                if self.bridge and hasattr(self.bridge, "dispatch_webhook") and ev.get("type") in ("fall", "idle_alert", "agitated"):
+                    self.bridge.dispatch_webhook(ev.get("type"), ev)
 
         doc = {
             "node_id":            node,
@@ -820,6 +830,10 @@ class LiveWriter:
             self.storage.save_live_vitals(node, doc)
             if self.local_server:
                 self.local_server.broadcast_live(doc)
+            if self.bridge and hasattr(self.bridge, "mqtt_publisher") and self.bridge.mqtt_publisher:
+                self.bridge.mqtt_publisher.publish_state(node, doc)
+            if fall_detected and self.bridge and hasattr(self.bridge, "dispatch_webhook"):
+                self.bridge.dispatch_webhook("fall", doc)
         except Exception as e:
             if self.verbose:
                 print(f"  {C.YELLOW}[live] Write failed: {e}{C.RESET}")
@@ -953,6 +967,7 @@ class Bridge:
 
         self.storage: Optional[BaseStorage] = None
         self.local_server: Optional[LocalAPIServer] = None
+        self.mqtt_publisher: Optional[Any] = None
 
         self.detectors: Dict[str, ApneaDetector] = {}
         self.batcher: Optional[SmartBatcher] = None
@@ -963,6 +978,56 @@ class Bridge:
         self.sim_running = False
         self._sim_lock = threading.Lock()
         self.udp_sock: Optional[socket.socket] = None
+
+    # ── MQTT & Webhook Controls ──────────────────────────────────
+
+    def configure_mqtt(self, config_dict: dict) -> dict:
+        host = config_dict.get("host") or getattr(self.args, "mqtt_host", None) or self.config.get("mqtt_host", "")
+        port = int(config_dict.get("port") or getattr(self.args, "mqtt_port", None) or self.config.get("mqtt_port", 1883))
+        user = config_dict.get("username") or getattr(self.args, "mqtt_user", None) or self.config.get("mqtt_user", "")
+        pwd = config_dict.get("password") or getattr(self.args, "mqtt_pass", None) or self.config.get("mqtt_pass", "")
+        prefix = config_dict.get("topic_prefix") or getattr(self.args, "mqtt_prefix", None) or self.config.get("mqtt_topic_prefix", "cu_sleep")
+
+        if self.mqtt_publisher:
+            try:
+                self.mqtt_publisher.stop()
+            except Exception:
+                pass
+            self.mqtt_publisher = None
+
+        if host and MqttPublisher:
+            self.mqtt_publisher = MqttPublisher(
+                host=host, port=port, username=user, password=pwd, topic_prefix=prefix
+            )
+            self.mqtt_publisher.start()
+            print(f"  {C.GREEN}[mqtt] Home Assistant MQTT publisher active ({host}:{port}){C.RESET}")
+            return {"status": "ok", "message": f"MQTT publisher started targeting {host}:{port}"}
+        return {"status": "disabled", "message": "MQTT disabled or host not provided"}
+
+    def dispatch_webhook(self, event_type: str, data: dict):
+        url = getattr(self.args, "webhook_url", None) or self.config.get("webhook_url", "")
+        if not url:
+            return
+        payload = {
+            "source": "CU SLEEP / CU MOVE",
+            "event": event_type,
+            "timestamp": int(time.time()),
+            "data": data,
+        }
+        def _send():
+            try:
+                import urllib.request
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json", "User-Agent": "CU-Sleep-Monitor/2.0"},
+                    method="POST",
+                )
+                urllib.request.urlopen(req, timeout=8)
+            except Exception as e:
+                if self.args.verbose:
+                    print(f"  {C.YELLOW}[webhook] Dispatch error: {e}{C.RESET}")
+        threading.Thread(target=_send, daemon=True).start()
 
     # ── Simulation Controls ──────────────────────────────────────
 
@@ -1034,19 +1099,18 @@ class Bridge:
     def _handle_packet(self, pkt: VitalsPacket):
         """Process one parsed vitals packet through every subsystem."""
         node = pkt.node_name
-        self.sessions.for_node(node)   # opens on first sight of a new node
-        detector = self._get_detector(node)
 
-        # 1. Apnea detection
-        completed = detector.update(pkt.breathing_rate, pkt.received_at)
-        apnea_active = detector.is_active or pkt.breathing_rate < detector.br_threshold
+        # Ensure session exists
+        self.sessions.for_node(node)
+
+        # 1. Apnea detector
+        detector = self._get_detector(node)
+        completed = detector.update(pkt.breathing_rate, time.time())
+        apnea_active = detector.is_active
 
         if completed:
-            print(f"\n  {C.RED}{C.BOLD}╔═══ APNEA EVENT ENDED ═══╗{C.RESET}")
-            print(f"  {C.RED}  Node:     {node}{C.RESET}")
-            print(f"  {C.RED}  Duration: {completed.duration}s{C.RESET}")
-            print(f"  {C.RED}  Min BR:   {completed.min_br:.1f} BPM{C.RESET}")
-            print(f"  {C.RED}  AHI now:  {fmt_ahi(detector.ahi).strip()}{C.RESET}")
+            print(f"\n  {C.RED}{C.BOLD}╔═════════════════════════╗")
+            print(f"  ║  APNEA EVENT RECORDED   ║  {completed.duration:.1f}s, min {completed.min_br:.1f} BPM")
             print(f"  {C.RED}{C.BOLD}╚═════════════════════════╝{C.RESET}\n")
 
             # Persist completed apnea event
@@ -1059,6 +1123,7 @@ class Bridge:
                 "ahi_after": detector.ahi,
             }
             self.storage.save_apnea_event(node, event_doc, self.sessions.for_node(node))
+            self.dispatch_webhook("apnea_event", event_doc)
 
         # 2. Smart batcher (auto-flushes every batch_interval)
         self.batcher.add(pkt, apnea_active)
@@ -1114,7 +1179,12 @@ class Bridge:
         self.live_writer   = LiveWriter(self.storage, live_interval, verbose,
                                         deriver=self.deriver,
                                         event_writer=self.event_writer,
-                                        local_server=self.local_server)
+                                        local_server=self.local_server,
+                                        bridge=self)
+
+        # Initialize MQTT if configured
+        if getattr(self.args, "mqtt_host", None) or self.config.get("mqtt_host"):
+            self.configure_mqtt({})
 
         if self.args.open:
             webbrowser.open(url)
@@ -1145,8 +1215,6 @@ class Bridge:
                 if pkt:
                     self._handle_packet(pkt)
                 elif self.args.verbose:
-                    # The node multicasts several packet types on this port.
-                    # Only vitals are consumed here; the rest are expected.
                     print(f"  {C.DIM}[skip] {PacketParser.describe(data)} "
                           f"from {addr[0]}{C.RESET}")
             except socket.timeout:
@@ -1168,6 +1236,13 @@ class Bridge:
         self.running = False
         self.stop_simulation()
 
+        if self.mqtt_publisher:
+            try:
+                self.mqtt_publisher.stop()
+            except Exception:
+                pass
+            self.mqtt_publisher = None
+
         if self.udp_sock:
             try:
                 self.udp_sock.close()
@@ -1177,8 +1252,6 @@ class Bridge:
         if self.local_server:
             self.local_server.stop()
         if self.batcher:
-            # Flush before closing so the final minutes are attributed to the
-            # session that produced them, not left orphaned.
             self.batcher.flush_all()
             self.batcher.shutdown()
         if self.sessions:
@@ -1274,6 +1347,24 @@ Examples:
     parser.add_argument(
         "--verbose", action="store_true",
         help="Enable verbose logging (batch writes, dropped packets, etc.)")
+    parser.add_argument(
+        "--mqtt-host", default=None,
+        help="MQTT broker host for Home Assistant Auto-Discovery")
+    parser.add_argument(
+        "--mqtt-port", type=int, default=1883,
+        help="MQTT broker port (default: 1883)")
+    parser.add_argument(
+        "--mqtt-user", default="",
+        help="MQTT username")
+    parser.add_argument(
+        "--mqtt-pass", default="",
+        help="MQTT password")
+    parser.add_argument(
+        "--mqtt-prefix", default="cu_sleep",
+        help="MQTT state topic prefix (default: cu_sleep)")
+    parser.add_argument(
+        "--webhook-url", default=None,
+        help="Emergency webhook URL (Discord/Telegram/HA) triggered on falls and alerts")
 
     args = parser.parse_args()
 

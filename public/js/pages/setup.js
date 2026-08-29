@@ -318,6 +318,80 @@ python3 bridge.py --host 0.0.0.0
           </div>
         </div>
       </details>
+
+      <!-- Home Assistant & MQTT Integration -->
+      <details class="setup-section" id="mqtt-setup-section">
+        <summary class="setup-heading">
+          <span class="step-number">🏠</span>
+          Home Assistant &amp; MQTT Auto-Discovery
+        </summary>
+        <div class="setup-body">
+          <p>Stream real-time vitals, apnea alarms, and occupancy states to Home Assistant via MQTT with automatic entity discovery.</p>
+
+          <div style="display: flex; flex-direction: column; gap: var(--sp-3); max-width: 600px;">
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-2);">
+              <div>
+                <label for="mqtt-host-input" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase;">Broker Host</label>
+                <input type="text" id="mqtt-host-input" placeholder="homeassistant.local or 192.168.1.X" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-family: var(--font-mono); font-size: var(--fs-sm);" />
+              </div>
+              <div>
+                <label for="mqtt-port-input" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase;">Port</label>
+                <input type="number" id="mqtt-port-input" value="1883" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-family: var(--font-mono); font-size: var(--fs-sm);" />
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2);">
+              <div>
+                <label for="mqtt-user-input" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase;">Username (Optional)</label>
+                <input type="text" id="mqtt-user-input" placeholder="mqtt_user" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-size: var(--fs-sm);" />
+              </div>
+              <div>
+                <label for="mqtt-pass-input" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase;">Password</label>
+                <input type="password" id="mqtt-pass-input" placeholder="••••••••" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-size: var(--fs-sm);" />
+              </div>
+            </div>
+
+            <div>
+              <label for="mqtt-prefix-input" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase;">Topic Prefix</label>
+              <input type="text" id="mqtt-prefix-input" value="cu_sleep" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-family: var(--font-mono); font-size: var(--fs-sm);" />
+            </div>
+
+            <div style="display: flex; gap: var(--sp-2); align-items: center; margin-top: var(--sp-2);">
+              <button id="mqtt-test-btn" class="btn">Test Connection</button>
+              <button id="mqtt-save-btn" class="btn btn-primary">Apply &amp; Connect</button>
+              <span id="mqtt-status-msg" style="font-size: var(--fs-xs); font-family: var(--font-mono); margin-left: var(--sp-2);"></span>
+            </div>
+          </div>
+
+          <div class="info-box" style="margin-top: var(--sp-4);">
+            <strong>Auto-Discovery:</strong> Home Assistant will automatically detect <code>sensor.bedroom_breathing_rate</code>, <code>sensor.bedroom_heart_rate</code>, <code>sensor.bedroom_sleep_quality</code>, <code>binary_sensor.bedroom_apnea_event</code>, and <code>binary_sensor.bedroom_fall_detected</code>.
+          </div>
+        </div>
+      </details>
+
+      <!-- Emergency Webhooks -->
+      <details class="setup-section" id="webhook-setup-section">
+        <summary class="setup-heading">
+          <span class="step-number">🔔</span>
+          Emergency Alert Webhooks (Discord / Telegram / HA)
+        </summary>
+        <div class="setup-body">
+          <p>Send instant HTTP POST webhook notifications when critical events occur (e.g. Fall detected or severe prolonged apnea).</p>
+
+          <div style="display: flex; flex-direction: column; gap: var(--sp-3); max-width: 600px;">
+            <div>
+              <label for="webhook-url-input" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase;">Webhook URL</label>
+              <input type="url" id="webhook-url-input" placeholder="https://discord.com/api/webhooks/... or https://maker.ifttt.com/..." style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-family: var(--font-mono); font-size: var(--fs-sm);" />
+            </div>
+
+            <div style="display: flex; gap: var(--sp-2); align-items: center; margin-top: var(--sp-2);">
+              <button id="webhook-test-btn" class="btn">Send Test Webhook</button>
+              <button id="webhook-save-btn" class="btn btn-primary">Save URL</button>
+              <span id="webhook-status-msg" style="font-size: var(--fs-xs); font-family: var(--font-mono); margin-left: var(--sp-2);"></span>
+            </div>
+          </div>
+        </div>
+      </details>
     </div>
   `;
 
@@ -481,4 +555,141 @@ python3 bridge.py --host 0.0.0.0
 
   // Initial render
   syncProviderUI();
+
+  // ── Home Assistant MQTT Logic ──────────────────────────────
+  const mqttHostInput   = document.getElementById('mqtt-host-input');
+  const mqttPortInput   = document.getElementById('mqtt-port-input');
+  const mqttUserInput   = document.getElementById('mqtt-user-input');
+  const mqttPassInput   = document.getElementById('mqtt-pass-input');
+  const mqttPrefixInput = document.getElementById('mqtt-prefix-input');
+  const mqttTestBtn     = document.getElementById('mqtt-test-btn');
+  const mqttSaveBtn     = document.getElementById('mqtt-save-btn');
+  const mqttStatusMsg   = document.getElementById('mqtt-status-msg');
+
+  // Load saved MQTT config from localStorage
+  if (mqttHostInput) mqttHostInput.value = localStorage.getItem('cu_mqtt_host') || '';
+  if (mqttPortInput) mqttPortInput.value = localStorage.getItem('cu_mqtt_port') || '1883';
+  if (mqttUserInput) mqttUserInput.value = localStorage.getItem('cu_mqtt_user') || '';
+  if (mqttPrefixInput) mqttPrefixInput.value = localStorage.getItem('cu_mqtt_prefix') || 'cu_sleep';
+
+  // Check live status
+  fetch('/api/mqtt/status')
+    .then(r => r.json())
+    .then(st => {
+      if (mqttStatusMsg) {
+        if (st.enabled && st.connected) {
+          mqttStatusMsg.textContent = `● Active (${st.host}:${st.port})`;
+          mqttStatusMsg.style.color = '#00e676';
+        } else if (st.enabled) {
+          mqttStatusMsg.textContent = `○ Connecting (${st.host})...`;
+          mqttStatusMsg.style.color = 'var(--accent-yellow)';
+        }
+      }
+    })
+    .catch(() => {});
+
+  mqttTestBtn?.addEventListener('click', async () => {
+    const host = mqttHostInput?.value.trim();
+    if (!host) {
+      if (mqttStatusMsg) { mqttStatusMsg.textContent = 'Enter broker host'; mqttStatusMsg.style.color = 'var(--alert-red)'; }
+      return;
+    }
+    if (mqttStatusMsg) { mqttStatusMsg.textContent = 'Testing connection...'; mqttStatusMsg.style.color = 'var(--mid)'; }
+    try {
+      const res = await fetch('/api/mqtt/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host,
+          port: parseInt(mqttPortInput?.value || '1883', 10),
+          username: mqttUserInput?.value.trim(),
+          password: mqttPassInput?.value || '',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        mqttStatusMsg.textContent = '✓ Broker reachable!';
+        mqttStatusMsg.style.color = '#00e676';
+      } else {
+        mqttStatusMsg.textContent = `✗ ${data.error || 'Connection failed'}`;
+        mqttStatusMsg.style.color = 'var(--alert-red)';
+      }
+    } catch (e) {
+      if (mqttStatusMsg) { mqttStatusMsg.textContent = `Error: ${e.message}`; mqttStatusMsg.style.color = 'var(--alert-red)'; }
+    }
+  });
+
+  mqttSaveBtn?.addEventListener('click', async () => {
+    const host = mqttHostInput?.value.trim();
+    const port = parseInt(mqttPortInput?.value || '1883', 10);
+    const username = mqttUserInput?.value.trim() || '';
+    const password = mqttPassInput?.value || '';
+    const topic_prefix = mqttPrefixInput?.value.trim() || 'cu_sleep';
+
+    localStorage.setItem('cu_mqtt_host', host);
+    localStorage.setItem('cu_mqtt_port', port.toString());
+    localStorage.setItem('cu_mqtt_user', username);
+    localStorage.setItem('cu_mqtt_prefix', topic_prefix);
+
+    try {
+      const res = await fetch('/api/mqtt/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ host, port, username, password, topic_prefix }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        mqttStatusMsg.textContent = '✓ MQTT configured & active';
+        mqttStatusMsg.style.color = '#00e676';
+      } else {
+        mqttStatusMsg.textContent = `✗ ${data.error || 'Config failed'}`;
+        mqttStatusMsg.style.color = 'var(--alert-red)';
+      }
+    } catch (e) {
+      if (mqttStatusMsg) { mqttStatusMsg.textContent = `Error: ${e.message}`; mqttStatusMsg.style.color = 'var(--alert-red)'; }
+    }
+  });
+
+  // ── Webhook Logic ──────────────────────────────────────────
+  const webhookUrlInput = document.getElementById('webhook-url-input');
+  const webhookTestBtn  = document.getElementById('webhook-test-btn');
+  const webhookSaveBtn  = document.getElementById('webhook-save-btn');
+  const webhookStatus   = document.getElementById('webhook-status-msg');
+
+  if (webhookUrlInput) webhookUrlInput.value = localStorage.getItem('cu_webhook_url') || '';
+
+  webhookSaveBtn?.addEventListener('click', () => {
+    const url = webhookUrlInput?.value.trim() || '';
+    localStorage.setItem('cu_webhook_url', url);
+    if (webhookStatus) {
+      webhookStatus.textContent = url ? '✓ Webhook URL saved' : 'URL cleared';
+      webhookStatus.style.color = url ? '#00e676' : 'var(--mid)';
+    }
+  });
+
+  webhookTestBtn?.addEventListener('click', async () => {
+    const url = webhookUrlInput?.value.trim();
+    if (!url) {
+      if (webhookStatus) { webhookStatus.textContent = 'Enter a webhook URL'; webhookStatus.style.color = 'var(--alert-red)'; }
+      return;
+    }
+    if (webhookStatus) { webhookStatus.textContent = 'Dispatching test alert...'; webhookStatus.style.color = 'var(--mid)'; }
+    try {
+      const res = await fetch('/api/webhook/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, event: 'test_alert' }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        webhookStatus.textContent = '✓ Webhook delivered successfully!';
+        webhookStatus.style.color = '#00e676';
+      } else {
+        webhookStatus.textContent = `✗ ${data.error || 'Webhook failed'}`;
+        webhookStatus.style.color = 'var(--alert-red)';
+      }
+    } catch (e) {
+      if (webhookStatus) { webhookStatus.textContent = `Error: ${e.message}`; webhookStatus.style.color = 'var(--alert-red)'; }
+    }
+  });
 }

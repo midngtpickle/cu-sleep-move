@@ -3743,3 +3743,128 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   margin: var(--sp-4) 0;
 }
 
+/* ─── CU MOVE View Switcher Tabs ─────────────────────────── */
+.sense-view-tabs {
+  display: flex;
+  gap: var(--sp-1);
+}
+
+.sense-tab-btn {
+  background: var(--dark-2);
+  border: 1px solid var(--border-default);
+  color: var(--mid);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sense-tab-btn:hover {
+  color: var(--white);
+  border-color: var(--white);
+}
+
+.sense-tab-btn.active {
+  background: var(--white);
+  color: var(--black);
+  border-color: var(--white);
+  font-weight: 600;
+}
+
+/* ─── Respiration Oscilloscope Panel ──────────────────────── */
+.oscillo-panel {
+  background: var(--dark-1);
+  border: var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  margin-top: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.oscillo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.oscillo-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.oscillo-title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--white);
+  text-transform: uppercase;
+}
+
+.oscillo-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: #00e676;
+}
+
+.oscillo-phase {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--dark-2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.oscillo-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.oscillo-ctrl-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-xs);
+  color: var(--mid);
+}
+
+.oscillo-canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 96px;
+  background: #050505;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+#oscillo-canvas {
+  width: 100%;
+  height: 96px;
+  display: block;
+}
+
+/* ─── Report Export Button Group ──────────────────────────── */
+.report-export-group {
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .report-export-group {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+

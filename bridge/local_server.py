@@ -17,8 +17,10 @@ import mimetypes
 import os
 import queue
 import threading
+import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 from typing import Any, Dict, Optional, Set
@@ -110,6 +112,12 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
         try:
             if path in ("/api/ai/test", "/api/ai/analyze"):
                 self._handle_ai_request(path)
+            elif path == "/api/mqtt/test":
+                self._handle_mqtt_test()
+            elif path == "/api/mqtt/config":
+                self._handle_mqtt_config()
+            elif path in ("/api/webhook/test", "/api/webhook/send"):
+                self._handle_webhook(path)
             elif path == "/api/simulation/start":
                 if bridge:
                     bridge.start_simulation()
@@ -136,6 +144,74 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
                 self._send_error_json(404, f"Unknown POST endpoint: {path}")
         except (BrokenPipeError, ConnectionResetError):
             pass
+
+    # ── MQTT & Webhook Handlers ───────────────────────────────
+
+    def _handle_mqtt_test(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        try:
+            body = json.loads(self.rfile.read(content_length).decode("utf-8")) if content_length > 0 else {}
+        except Exception:
+            body = {}
+        host = body.get("host", "localhost")
+        port = int(body.get("port", 1883))
+        user = body.get("username", "")
+        password = body.get("password", "")
+
+        from mqtt_publisher import MqttPublisher
+        pub = MqttPublisher(host=host, port=port, username=user, password=password)
+        res = pub.test_connection()
+        if res.get("status") == "ok":
+            self._send_json(res)
+        else:
+            self._send_error_json(400, res.get("message", "MQTT test failed"))
+
+    def _handle_mqtt_config(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        try:
+            body = json.loads(self.rfile.read(content_length).decode("utf-8")) if content_length > 0 else {}
+        except Exception:
+            body = {}
+        bridge = LocalAPIHandler.bridge
+        if bridge and hasattr(bridge, "configure_mqtt"):
+            res = bridge.configure_mqtt(body)
+            self._send_json(res)
+        else:
+            self._send_error_json(503, "Bridge not attached")
+
+    def _handle_webhook(self, path: str):
+        content_length = int(self.headers.get("Content-Length", 0))
+        try:
+            body = json.loads(self.rfile.read(content_length).decode("utf-8")) if content_length > 0 else {}
+        except Exception as e:
+            self._send_error_json(400, f"Invalid JSON payload: {e}")
+            return
+
+        url = body.get("url", "").strip()
+        if not url:
+            self._send_error_json(400, "Webhook URL is required")
+            return
+
+        payload = body.get("payload") or {
+            "source": "CU SLEEP / CU MOVE",
+            "event": body.get("event", "test_alert"),
+            "timestamp": int(time.time()),
+            "message": "Test notification from CU SLEEP Monitor.",
+        }
+
+        try:
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json", "User-Agent": "CU-Sleep-Monitor/2.0"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                self._send_json({"status": "ok", "code": resp.status, "message": "Webhook delivered successfully"})
+        except urllib.error.HTTPError as e:
+            self._send_json({"status": "ok", "code": e.code, "message": f"Server reached (HTTP {e.code})"})
+        except Exception as e:
+            self._send_error_json(400, f"Webhook dispatch error: {str(e)}")
 
     # ── AI Proxy Handlers ─────────────────────────────────────
 
@@ -355,6 +431,25 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
             self._send_json({"simulating": simulating})
             return
 
+        if path == "/api/mqtt/status":
+            bridge = LocalAPIHandler.bridge
+            if bridge and hasattr(bridge, "mqtt_publisher") and bridge.mqtt_publisher:
+                pub = bridge.mqtt_publisher
+                self._send_json({
+                    "enabled": True,
+                    "connected": pub.connected,
+                    "host": pub.host,
+                    "port": pub.port,
+                    "topic_prefix": pub.topic_prefix,
+                })
+            else:
+                self._send_json({"enabled": False, "connected": False})
+            return
+
+        if path.startswith("/api/export/session/"):
+            self._handle_export(path, params)
+            return
+
         if storage is None:
             self._send_error_json(503, "Storage not ready")
             return
@@ -367,9 +462,6 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
                 self._send_error_json(400, "limit must be an integer")
                 return
             batches = storage.get_history(node_id, limit)
-            # Each batch stores its 60 raw 1 Hz samples. Summaries and charts only
-            # need the min/max/avg, and shipping the raw samples turns a night's
-            # history into megabytes. Opt in with ?samples=1 when you want them.
             if params.get("samples", ["0"])[0] != "1":
                 batches = [{k: v for k, v in b.items() if k != "samples"} for b in batches]
             self._send_json(batches)
@@ -391,6 +483,61 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
             self._handle_sessions(path, params, node_id, limit_param)
         else:
             self._send_error_json(404, f"Unknown endpoint: {path}")
+
+    def _handle_export(self, path: str, params: Dict[str, list]):
+        storage = LocalAPIHandler.storage
+        if not storage:
+            self._send_error_json(503, "Storage not ready")
+            return
+
+        session_id_str = path[len("/api/export/session/"):].strip("/")
+        try:
+            session_id = int(session_id_str)
+        except ValueError:
+            self._send_error_json(400, "Invalid session ID")
+            return
+
+        fmt = params.get("format", ["csv"])[0].lower()
+        session = storage.get_session(session_id)
+        if not session:
+            self._send_error_json(404, "Session not found")
+            return
+
+        vitals = storage.get_session_vitals(session_id)
+
+        if fmt == "json":
+            export_data = {
+                "session": session,
+                "vitals_count": len(vitals),
+                "vitals": vitals,
+                "exported_at": datetime.now(timezone.utc).isoformat(),
+            }
+            body = json.dumps(export_data, indent=2).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Disposition", f'attachment; filename="sleep_session_{session_id}.json"')
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            # CSV export
+            rows = ["timestamp,iso_time,breathing_rate_bpm,heart_rate_bpm,phase_variance,apnea_detected"]
+            for v in vitals:
+                ts = v.get("timestamp", 0)
+                iso = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S") if ts else ""
+                br = v.get("breathing_rate", "")
+                hr = v.get("heart_rate", "")
+                var = v.get("presence_variance", "")
+                apnea = "1" if v.get("apnea") else "0"
+                rows.append(f"{ts},{iso},{br},{hr},{var},{apnea}")
+
+            csv_body = "\r\n".join(rows).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/csv; charset=utf-8")
+            self.send_header("Content-Disposition", f'attachment; filename="sleep_session_{session_id}.csv"')
+            self.send_header("Content-Length", str(len(csv_body)))
+            self.end_headers()
+            self.wfile.write(csv_body)
 
     def _handle_sessions(self, path: str, params: Dict[str, list],
                          node_id: str, limit_param) -> None:
