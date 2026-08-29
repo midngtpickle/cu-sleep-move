@@ -290,11 +290,17 @@ python3 bridge.py --host 0.0.0.0
               <select id="ai-model-select" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-size: var(--fs-sm);"></select>
             </div>
 
+            <!-- Custom Model Identifier Input -->
+            <div id="ai-custom-model-row" style="display: none;">
+              <label for="ai-custom-model-input" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase; letter-spacing: 0.05em;">Custom Model Identifier</label>
+              <input type="text" id="ai-custom-model-input" placeholder="e.g. claude-3-7-sonnet-20250219 or gemini-2.5-pro" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-family: var(--font-mono); font-size: var(--fs-sm);" />
+            </div>
+
             <!-- Extended Thinking / Reasoning Budget -->
             <div id="ai-thinking-row">
               <label for="ai-thinking-select" style="display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase; letter-spacing: 0.05em;">
                 <span>Extended Thinking &amp; Reasoning</span>
-                <span id="ai-thinking-badge" style="color: #c084fc; font-weight: 600;">Hybrid Reasoning</span>
+                <span id="ai-thinking-badge" style="color: #c084fc; font-weight: 600;">Reasoning Active</span>
               </label>
               <select id="ai-thinking-select" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-size: var(--fs-sm);"></select>
             </div>
@@ -327,6 +333,9 @@ python3 bridge.py --host 0.0.0.0
     clearStoredApiKey,
     getSelectedModel,
     setSelectedModel,
+    getCustomModel,
+    setCustomModel,
+    getEffectiveModel,
     getThinkingBudget,
     setThinkingBudget,
     testApiKey,
@@ -340,6 +349,8 @@ python3 bridge.py --host 0.0.0.0
   const keyInput = document.getElementById('ai-key-input');
   const keyLabel = document.getElementById('ai-key-label');
   const modelSelect = document.getElementById('ai-model-select');
+  const customModelRow = document.getElementById('ai-custom-model-row');
+  const customModelInput = document.getElementById('ai-custom-model-input');
   const thinkingSelect = document.getElementById('ai-thinking-select');
   const thinkingRow = document.getElementById('ai-thinking-row');
   const saveBtn = document.getElementById('ai-save-btn');
@@ -359,11 +370,11 @@ python3 bridge.py --host 0.0.0.0
     tabClaude.classList.toggle('active', currentProvider === AI_PROVIDERS.CLAUDE);
 
     if (currentProvider === AI_PROVIDERS.CLAUDE) {
-      providerInfo.innerHTML = 'Get an API key from the <a href="https://console.anthropic.com/" target="_blank" rel="noopener" style="color: var(--white); text-decoration: underline;">Anthropic Console</a>. Features Claude 3.7 Sonnet with extended thinking.';
+      providerInfo.innerHTML = 'Get an API key from the <a href="https://console.anthropic.com/" target="_blank" rel="noopener" style="color: var(--white); text-decoration: underline;">Anthropic Console</a>. Supports latest Claude 3.7 Sonnet, 3.5 Sonnet, 3.5 Haiku, and custom model IDs with extended thinking.';
       keyLabel.textContent = 'Anthropic Claude API Key';
       keyInput.placeholder = 'Paste Anthropic API Key (sk-ant-...)';
     } else {
-      providerInfo.innerHTML = 'Get a free API key from <a href="https://aistudio.google.com/" target="_blank" rel="noopener" style="color: var(--white); text-decoration: underline;">Google AI Studio</a>. Features Gemini 2.5 Flash & Pro with reasoning synthesis.';
+      providerInfo.innerHTML = 'Get a free API key from <a href="https://aistudio.google.com/" target="_blank" rel="noopener" style="color: var(--white); text-decoration: underline;">Google AI Studio</a>. Supports Gemini 2.5 Pro, 2.5 Flash, 2.0 Flash Thinking, and custom model IDs.';
       keyLabel.textContent = 'Google Gemini API Key';
       keyInput.placeholder = 'Paste Gemini API Key (AIzaSy...)';
     }
@@ -384,6 +395,10 @@ python3 bridge.py --host 0.0.0.0
       `<option value="${m.id}"${m.id === selectedModel ? ' selected' : ''}>${m.name} (${m.tag})</option>`
     ).join('');
 
+    // Custom model input
+    const customVal = getCustomModel(currentProvider);
+    if (customModelInput) customModelInput.value = customVal;
+
     // Populate Thinking Budgets
     const currentBudget = getThinkingBudget(currentProvider);
     thinkingSelect.innerHTML = THINKING_BUDGETS.map(b =>
@@ -394,12 +409,9 @@ python3 bridge.py --host 0.0.0.0
   }
 
   function updateThinkingVisibility() {
-    const selectedModelId = modelSelect.value;
-    const model = (AI_MODELS[currentProvider] || []).find(m => m.id === selectedModelId);
-    if (model && model.supportsThinking) {
-      thinkingRow.style.display = 'block';
-    } else {
-      thinkingRow.style.display = 'block'; // Keep visible to allow setting for thinking models
+    const isCustom = modelSelect.value === 'custom';
+    if (customModelRow) {
+      customModelRow.style.display = isCustom ? 'block' : 'none';
     }
   }
 
@@ -418,6 +430,10 @@ python3 bridge.py --host 0.0.0.0
   modelSelect?.addEventListener('change', (e) => {
     setSelectedModel(currentProvider, e.target.value);
     updateThinkingVisibility();
+  });
+
+  customModelInput?.addEventListener('input', (e) => {
+    setCustomModel(currentProvider, e.target.value);
   });
 
   thinkingSelect?.addEventListener('change', (e) => {
@@ -440,12 +456,13 @@ python3 bridge.py --host 0.0.0.0
       showStatus('Enter a key to test.', 'var(--alert-red)');
       return;
     }
-    showStatus('Testing connection...', 'var(--mid)');
+    const effectiveModel = getEffectiveModel(currentProvider);
+    showStatus(`Testing connection with ${effectiveModel}...`, 'var(--mid)');
     testBtn.disabled = true;
     try {
-      const working = await testApiKey(currentProvider, key, modelSelect.value);
+      const working = await testApiKey(currentProvider, key, effectiveModel);
       if (working) {
-        showStatus('Connection successful! Key and model verified.', 'var(--white)');
+        showStatus(`Connection successful! ${effectiveModel} verified.`, 'var(--white)');
       } else {
         showStatus('API response error.', 'var(--alert-red)');
       }

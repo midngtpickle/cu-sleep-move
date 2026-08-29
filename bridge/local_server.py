@@ -204,8 +204,8 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
         if system_prompt:
             payload["system"] = system_prompt
 
-        # Extended thinking on Claude 3.7+
-        use_thinking = thinking_budget > 0 and "claude-3-7" in model.lower() and not is_test
+        # Extended thinking on Claude 3.7+ / future reasoning models
+        use_thinking = thinking_budget > 0 and not is_test
         if use_thinking:
             payload["max_tokens"] = max(4096, thinking_budget + 2048)
             payload["thinking"] = {

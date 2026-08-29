@@ -19,6 +19,9 @@ import {
   getStoredApiKey,
   getSelectedModel,
   setSelectedModel,
+  getCustomModel,
+  setCustomModel,
+  getEffectiveModel,
   getThinkingBudget,
   setThinkingBudget,
   generateSleepAnalysis,
@@ -294,6 +297,7 @@ async function loadReport(sessionId) {
       const models = AI_MODELS[activeProvider] || [];
       const currentModel = getSelectedModel(activeProvider);
       const currentBudget = getThinkingBudget(activeProvider);
+      const customModelVal = getCustomModel(activeProvider);
 
       panel.innerHTML = `
         <div class="chart-header">
@@ -328,6 +332,11 @@ async function loadReport(sessionId) {
             </div>
           </div>
 
+          <div id="quick-custom-model-row" style="margin-bottom: var(--sp-4); display: ${currentModel === 'custom' ? 'block' : 'none'};">
+            <label style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase; letter-spacing: 0.05em;">Custom Model Identifier</label>
+            <input type="text" id="quick-custom-model-input" value="${escapeHtml(customModelVal)}" placeholder="e.g. claude-3-7-sonnet-20250219 or gemini-2.5-pro" style="width: 100%; max-width: 460px; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-family: var(--font-mono); font-size: var(--fs-sm);" />
+          </div>
+
           <button class="btn btn-primary" id="analyze-ai-btn" style="padding: 10px 22px; font-size: var(--fs-sm); font-weight: 600;">
             ✦ Generate Clinical Analysis
           </button>
@@ -337,6 +346,8 @@ async function loadReport(sessionId) {
       const providerSel = document.getElementById('quick-provider-select');
       const modelSel = document.getElementById('quick-model-select');
       const thinkSel = document.getElementById('quick-thinking-select');
+      const customRow = document.getElementById('quick-custom-model-row');
+      const customInput = document.getElementById('quick-custom-model-input');
 
       providerSel?.addEventListener('change', (e) => {
         setActiveProvider(e.target.value);
@@ -345,6 +356,13 @@ async function loadReport(sessionId) {
 
       modelSel?.addEventListener('change', (e) => {
         setSelectedModel(activeProvider, e.target.value);
+        if (customRow) {
+          customRow.style.display = e.target.value === 'custom' ? 'block' : 'none';
+        }
+      });
+
+      customInput?.addEventListener('input', (e) => {
+        setCustomModel(activeProvider, e.target.value);
       });
 
       thinkSel?.addEventListener('change', (e) => {
@@ -375,7 +393,7 @@ async function loadReport(sessionId) {
     if (!panel) return;
 
     const provider = getActiveProvider();
-    const model = getSelectedModel(provider);
+    const model = getEffectiveModel(provider);
     const thinkingBudget = getThinkingBudget(provider);
     const providerName = provider === 'claude' ? 'Anthropic Claude' : 'Google Gemini';
 
