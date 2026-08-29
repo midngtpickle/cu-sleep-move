@@ -46,10 +46,12 @@ join the network and start sending on their own about 8 seconds after power-up.
 
 **Step 2 — Start the bridge.**
 
-```bash
-cd bridge
-python bridge.py --open
-```
+* **Easiest:** Double-click `start.bat` in the project root folder.
+* **Or via command line:**
+  ```bash
+  cd bridge
+  python bridge.py --open
+  ```
 
 (Leave off `--simulate` — that's the flag that generates fake data.)
 
