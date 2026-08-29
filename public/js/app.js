@@ -17,8 +17,9 @@ const routes = {
   '/live':    { render: renderLive,    destroy: destroyLive,    title: 'Live Monitor' },
   '/report':  { render: renderReport,  destroy: destroyReport,  title: 'Sleep Report' },
   '/history': { render: renderHistory, destroy: destroyHistory, title: 'History' },
-  '/sensing': { render: renderSensing, destroy: destroySensing, title: 'Sensing Console' },
   '/setup':   { render: renderSetup,   destroy: () => {},       title: 'Setup Guide' },
+  '/sensing': { render: renderSensing, destroy: destroySensing, title: 'CU MOVE' },
+  '/cumove':  { render: renderSensing, destroy: destroySensing, title: 'CU MOVE' },
 };
 
 const DEFAULT_ROUTE = '/live';

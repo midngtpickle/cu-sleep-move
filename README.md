@@ -177,7 +177,7 @@ it does not reflash the firmware.
 * **Apnea detection** — flags breathing flatlines over 10 s and derives a nightly Apnea-Hypopnea Index.
 * **Presence and motion** — room state (*Quiet*, *Ambient*, *Active*, *Agitated*), occupancy, fall events, idle tracking.
 * **Nightly reports** — one run of the bridge is one night. Start it at bedtime, stop it in the morning, and it appears as a session with overnight charts and summary statistics.
-* **Sensing console** — a live pulse field, 30-minute activity heatstrip, and event log covering falls, activity bursts, idle thresholds and calibration drift, with optional browser notifications.
+* **CU MOVE** — live WiFi sensing console with pulse field, 30-minute activity heatstrip, room state tracking (*Quiet*, *Ambient*, *Active*, *Agitated*), occupancy, fall events, and calibration drift detection.
 * **Optional AI analysis** — bring your own Google Gemini or Anthropic Claude key to generate clinical-style evaluations of a night, with support for latest models (Claude 3.7 Sonnet with Extended Thinking, Gemini 2.5 Pro / Flash). Off by default; only numeric aggregates are ever sent.
 
 Everything runs and stays on your machine. The only outbound request the app can

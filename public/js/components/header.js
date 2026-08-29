@@ -25,14 +25,14 @@ export function renderHeader(container) {
         <a href="#/history" class="nav-link" data-route="/history">
           <span class="nav-icon">▤</span>History
         </a>
-        <a href="#/sensing" class="nav-link" data-route="/sensing">
-          <span class="nav-icon">📡</span>Sensing
-        </a>
         <a href="#/setup" class="nav-link" data-route="/setup">
           <span class="nav-icon">⚙</span>Setup
         </a>
         <a href="#/info" class="nav-link" data-route="/info">
           <span class="nav-icon">ℹ</span>Info
+        </a>
+        <a href="#/sensing" class="nav-link" data-route="/sensing">
+          <span class="nav-icon">📡</span>CU MOVE
         </a>
       </nav>
       <div class="header-right">
