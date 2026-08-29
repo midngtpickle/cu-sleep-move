@@ -130,6 +130,24 @@ export async function renderInfo(container) {
       <details class="setup-section">
         <summary class="setup-heading">
           <span class="step-number">05</span>
+          CU MOVE — Spatial Motion Radar &amp; Oscilloscope
+        </summary>
+        <div class="setup-body">
+          <p>
+            <strong>CU MOVE</strong> extends the platform beyond overnight sleep monitoring into a real-time spatial intelligence console:
+          </p>
+          <ul>
+            <li><strong>Respiration Oscilloscope:</strong> Renders a high-frequency (60 FPS) subcarrier chest displacement waveform, allowing users to visually inspect real-time inhalation, exhalation, and breathing rhythm.</li>
+            <li><strong>2D Multistatic Room Mesh:</strong> Visualizes bedroom layout, sensor node positions, and real-time localized subject position derived from multi-angle CSI ray disturbances.</li>
+            <li><strong>Fall &amp; Incident Detection:</strong> Detects sudden high-energy phase velocity bursts followed by prolonged stillness on the floor, triggering an in-browser audio alarm and external webhooks.</li>
+          </ul>
+        </div>
+      </details>
+
+      <!-- Section 6 -->
+      <details class="setup-section">
+        <summary class="setup-heading">
+          <span class="step-number">06</span>
           Privacy and Security
         </summary>
         <div class="setup-body">
