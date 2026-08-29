@@ -1,0 +1,5 @@
+﻿key,type,encoding,value
+csi_cfg,namespace,,
+ssid,data,string,YOUR_WIFI_SSID
+password,data,string,YOUR_WIFI_PASSWORD
+target_ip,data,string,192.168.1.X

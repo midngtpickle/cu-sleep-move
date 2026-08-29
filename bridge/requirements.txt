@@ -1,0 +1,11 @@
+# CU SLEEP — Bridge Dependencies
+#
+# There are none.
+#
+# The bridge, the SQLite database, and the dashboard web server all run on the
+# Python 3.9+ standard library (sqlite3, http.server, socket, json, struct).
+# You do not need pip, a virtualenv, or an internet connection.
+#
+#   python bridge.py --simulate --open
+#
+# This file is kept so tooling that expects it does not fail.

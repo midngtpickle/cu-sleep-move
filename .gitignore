@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local database files
+*.db
+vitals.db
+
+# Firebase
+.firebase/
+
+# IDE & AI tooling
+.vscode/
+.idea/
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Credentials & Hardware Config (NEVER commit these)
+*serviceAccountKey*.json
+*.key.json
+.env
+.env.*
+secrets/
+bridge/serviceAccountKey.json
+nvs_config.csv
+*nvs_config*.csv
+!nvs_config.csv.example
+
+# Bridge logs
+bridge/*.log
+
+# Build
+dist/
+
+# Vendored upstream firmware project (referenced via README link, not tracked here)
+RuView/
+
+# Vendored browser libraries are committed on purpose (offline operation)
+!public/vendor/

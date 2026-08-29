@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="CU SLEEP — Real-time contactless sleep monitoring dashboard powered by ESP32-C6 WiFi CSI sensing.">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>CU SLEEP — WiFi Sleep Monitor</title>
+
+  <!-- Favicon — inline SVG moon/sleep icon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23000' stroke='%23333' stroke-width='1'/%3E%3Cpath d='M20 8a10 10 0 1 0 0 16A8 8 0 0 1 20 8z' fill='%23fff'/%3E%3Ccircle cx='22' cy='10' r='1' fill='%23fff'/%3E%3Ccircle cx='26' cy='14' r='0.7' fill='%23fff'/%3E%3Ccircle cx='24' cy='8' r='0.5' fill='%23fff'/%3E%3C/svg%3E">
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="/css/style.css">
+
+  <!-- Chart.js v4 — vendored locally so the app runs with no network access -->
+  <script src="/vendor/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- ===== HEADER (injected by js/components/header.js) ===== -->
+  <header class="site-header" id="site-header"></header>
+
+  <!-- ===== APNEA ALERT BANNER ===== -->
+  <div class="apnea-alert" id="apnea-alert">
+    <span class="alert-icon">⚠</span>
+    <span>Apnea Detected — Breathing Rate Below Threshold</span>
+  </div>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="main-content" id="app-content">
+    <!-- Pages rendered here by the SPA router -->
+  </main>
+
+  <!-- ===== MODAL OVERLAY ===== -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal" id="modal-dialog"></div>
+  </div>
+
+  <!-- ===== DISCLAIMER ===== -->
+  <footer class="disclaimer">
+    Research Use Only — Not a Medical Device
+  </footer>
+
+  <!-- ===== App entry point ===== -->
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

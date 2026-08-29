@@ -1,0 +1,52 @@
+{
+    "_comment_http": "Dashboard + JSON API. 127.0.0.1 keeps it on this machine only; use 0.0.0.0 to expose it to your network.",
+    "http_host": "127.0.0.1",
+    "http_port": 8080,
+
+    "_comment_db": "SQLite database file, relative to where you run the bridge",
+    "db_path": "vitals.db",
+
+    "_comment_udp": "UDP port the bridge listens on (ESP32 sends vitals here)",
+    "udp_port": 5005,
+
+    "_comment_node": "Default node identifier when not specified via --node-id",
+    "default_node_id": "node-01",
+
+    "_comment_batch": "How many seconds of samples to buffer before writing one batch row",
+    "batch_interval_seconds": 60,
+
+    "_comment_live": "How often (seconds) to update live vitals",
+    "live_update_interval_seconds": 1.0,
+
+    "_comment_apnea_bpm": "Breathing rate below this (BPM) is considered apneic",
+    "apnea_threshold_bpm": 6.0,
+
+    "_comment_apnea_dur": "BR must stay below threshold for this many seconds to confirm an apnea event",
+    "apnea_duration_seconds": 10.0,
+
+    "_comment_idle": "Seconds of stillness before the bridge fires an idle event",
+    "idle_alert_seconds": 600,
+
+    "_comment_bands": "Motion-energy bands for room state. PROVISIONAL — measured over 55s on one ESP32-C6 in a daytime room (min 0.7, median 8.5, p90 23.2, max 35.8). Real CSI energy is nothing like the simulator's 0-1 range. Tune these from your own overnight data: run with --verbose and watch the motion column while the room is empty, then while you are in bed. Set 'quiet' just above your empty-room reading.",
+    "motion_bands": {
+        "quiet": 2.0,
+        "ambient": 10.0,
+        "active": 25.0,
+        "idle": 2.0
+    },
+
+    "_comment_fallvar": "Variance of the last 5 motion samples that flags elevated fall risk. Also scale-dependent, also provisional.",
+    "fall_variance_threshold": 100.0,
+
+    "_comment_session": "One bridge run = one night. Restarting within this many seconds rejoins the previous session instead of splitting the night in two.",
+    "session_resume_gap_seconds": 1200,
+
+    "_comment_sim": "Settings for --simulate mode",
+    "simulation": {
+        "_comment_rate": "Simulated sample rate in Hz (1.0 = one packet per second)",
+        "sample_rate_hz": 1.0,
+
+        "_comment_apnea": "Per-second probability of starting a simulated apnea event. 0.002 gives a realistic handful per hour; higher values make every night look severe.",
+        "apnea_chance": 0.002
+    }
+}
