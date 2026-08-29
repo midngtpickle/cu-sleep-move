@@ -1,7 +1,4 @@
-/**
- * Header Component — Persistent Navigation Bar
- * CU SLEEP — WiFi Sleep Monitor (local standalone)
- */
+import { getSimulationStatus, toggleSimulation } from '../services/api.js';
 
 let headerContainer = null;
 let docClickListener = null;
@@ -39,6 +36,9 @@ export function renderHeader(container) {
         </a>
       </nav>
       <div class="header-right">
+        <button class="demo-toggle-btn" id="demo-toggle-btn" title="Toggle Simulated Demo Mode">
+          <span class="demo-icon">▶</span> <span class="demo-label">Demo Mode</span>
+        </button>
         <div class="connection-status" id="connection-dot" title="Bridge status">
           <span class="status-dot offline"></span>
           <span class="status-text">Offline</span>
@@ -56,6 +56,21 @@ export function renderHeader(container) {
   if (docClickListener) {
     document.removeEventListener('click', docClickListener);
     docClickListener = null;
+  }
+
+  const demoBtn = container.querySelector('#demo-toggle-btn');
+  if (demoBtn) {
+    demoBtn.addEventListener('click', async () => {
+      demoBtn.disabled = true;
+      const res = await toggleSimulation();
+      updateSimulationUI(!!res?.simulating);
+      demoBtn.disabled = false;
+    });
+
+    // Check initial simulation state
+    getSimulationStatus().then((res) => {
+      if (res?.simulating) updateSimulationUI(true);
+    });
   }
 
   const menuToggle = container.querySelector('#menu-toggle');
@@ -83,6 +98,24 @@ export function renderHeader(container) {
     if (!container.contains(e.target)) closeMenu();
   };
   document.addEventListener('click', docClickListener);
+}
+
+/**
+ * Update the Demo button appearance.
+ * @param {boolean} isSimulating
+ */
+export function updateSimulationUI(isSimulating) {
+  const btn = document.querySelector('#demo-toggle-btn');
+  if (!btn) return;
+  if (isSimulating) {
+    btn.classList.add('active');
+    btn.innerHTML = '<span class="demo-icon">⏹</span> <span class="demo-label">Stop Demo</span>';
+    btn.title = 'Demo mode active — click to stop simulation';
+  } else {
+    btn.classList.remove('active');
+    btn.innerHTML = '<span class="demo-icon">▶</span> <span class="demo-label">Demo Mode</span>';
+    btn.title = 'Click to start simulated vitals without hardware';
+  }
 }
 
 /**

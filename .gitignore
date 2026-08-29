@@ -7,7 +7,12 @@ venv/
 
 # Local database files
 *.db
+*.db-*
+*.db-wal
+*.db-shm
+*.db-journal
 vitals.db
+vitals.db-*
 
 # Firebase
 .firebase/

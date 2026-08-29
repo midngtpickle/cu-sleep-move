@@ -30,6 +30,41 @@ async function getJSON(path, fallback) {
   }
 }
 
+async function postJSON(path, body = {}, fallback = null) {
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) {
+    console.warn(`[API] POST ${path} failed:`, e.message);
+    return fallback;
+  }
+}
+
+/** Get current simulation status */
+export function getSimulationStatus() {
+  return getJSON('/api/simulation', { simulating: false });
+}
+
+/** Start demo simulation */
+export function startSimulation() {
+  return postJSON('/api/simulation/start', {}, { status: 'error' });
+}
+
+/** Stop demo simulation */
+export function stopSimulation() {
+  return postJSON('/api/simulation/stop', {}, { status: 'error' });
+}
+
+/** Toggle demo simulation */
+export function toggleSimulation() {
+  return postJSON('/api/simulation/toggle', {}, { status: 'error' });
+}
+
 /**
  * Subscribe to live vitals over SSE, falling back to polling if the stream drops.
  * @param {string} nodeId

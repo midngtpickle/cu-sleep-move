@@ -23,14 +23,17 @@ and tick **"Add Python to PATH"** during setup.
 
 ---
 
-### Try it with no hardware
+### Try it with no hardware (Demo Simulation)
 
-You can run the whole system on fake data to see how it works:
+You can run the whole system on fake data to explore charts, reports, and events without any hardware:
 
-```bash
-cd bridge
-python bridge.py --simulate --open
-```
+* **Easiest:** Double-click `start-demo.bat` in the project root folder.
+* **Or inside the app:** Start `start.bat` and click the **"Demo Mode"** button in the top navigation bar or on the Live page.
+* **Or via command line:**
+  ```bash
+  cd bridge
+  python bridge.py --simulate --open
+  ```
 
 `--open` launches the dashboard in your browser automatically. Press
 **Ctrl+C** in the terminal when you're done.

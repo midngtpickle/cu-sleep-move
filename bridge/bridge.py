@@ -959,6 +959,55 @@ class Bridge:
         self.live_writer: Optional[LiveWriter] = None
         self.sessions: Optional[SessionRegistry] = None
         self.simulator: Optional[VitalsSimulator] = None
+        self.sim_thread: Optional[threading.Thread] = None
+        self.sim_running = False
+        self._sim_lock = threading.Lock()
+        self.udp_sock: Optional[socket.socket] = None
+
+    # ── Simulation Controls ──────────────────────────────────────
+
+    def is_simulating(self) -> bool:
+        return bool(self.sim_running)
+
+    def start_simulation(self) -> bool:
+        with self._sim_lock:
+            if self.sim_running:
+                return True
+            node_name, numeric_id = self._resolve_node_id()
+            if not self.simulator:
+                self.simulator = VitalsSimulator(
+                    node_id=numeric_id,
+                    apnea_chance=self.config
+                        .get("simulation", {})
+                        .get("apnea_chance", 0.002),
+                )
+            if self.sessions:
+                self.sessions.open(node_name)
+            self.sim_running = True
+            self.sim_thread = threading.Thread(target=self._run_simulated_worker, daemon=True)
+            self.sim_thread.start()
+            print(f"\n  {C.MAGENTA}[simulation] Demo simulation started{C.RESET}")
+            return True
+
+    def stop_simulation(self) -> bool:
+        with self._sim_lock:
+            if not self.sim_running:
+                return False
+            self.sim_running = False
+            print(f"\n  {C.YELLOW}[simulation] Demo simulation stopped{C.RESET}")
+            return True
+
+    def _run_simulated_worker(self):
+        """Generate and process simulated packets in the background."""
+        rate = self.config.get("simulation", {}).get("sample_rate_hz", 1.0)
+        interval = 1.0 / max(0.1, rate)
+        while self.running and self.sim_running:
+            if self.simulator:
+                raw = self.simulator.generate()
+                pkt = PacketParser.parse(raw)
+                if pkt:
+                    self._handle_packet(pkt)
+            time.sleep(interval)
 
     # ── Helpers ───────────────────────────────────────────────────
 
@@ -1033,7 +1082,7 @@ class Bridge:
         # Serve the web app + JSON API + SSE stream
         host = self.args.host or self.config.get("http_host", "127.0.0.1")
         port = self.args.http_port or self.config.get("http_port", 8080)
-        self.local_server = LocalAPIServer(self.storage, host=host, port=port)
+        self.local_server = LocalAPIServer(self.storage, host=host, port=port, bridge=self)
         try:
             self.local_server.start()
         except OSError as e:
@@ -1067,40 +1116,16 @@ class Bridge:
                                         event_writer=self.event_writer,
                                         local_server=self.local_server)
 
-        node_name, numeric_id = self._resolve_node_id()
-        # In live mode a session is opened when a node actually reports, so an
-        # absent or renumbered node does not leave an empty session behind.
-        if self.args.simulate:
-            self.sessions.open(node_name)
-
         if self.args.open:
             webbrowser.open(url)
 
         if self.args.simulate:
             self._banner("SIMULATION MODE", C.MAGENTA)
-            self.simulator = VitalsSimulator(
-                node_id=numeric_id,
-                apnea_chance=self.config
-                    .get("simulation", {})
-                    .get("apnea_chance", 0.002),
-            )
-            self._run_simulated()
+            self.start_simulation()
         else:
             self._banner("LIVE MODE", C.CYAN)
-            self._run_udp()
 
-    def _run_simulated(self):
-        """Generate and process simulated packets at 1 Hz."""
-        rate = self.config.get("simulation", {}).get("sample_rate_hz", 1.0)
-        interval = 1.0 / max(0.1, rate)
-        print(f"  {C.DIM}Generating simulated vitals at {rate} Hz …{C.RESET}\n")
-
-        while self.running:
-            raw = self.simulator.generate()
-            pkt = PacketParser.parse(raw)
-            if pkt:
-                self._handle_packet(pkt)
-            time.sleep(interval)
+        self._run_udp()
 
     def _run_udp(self):
         """Listen for real ESP32 UDP packets."""
@@ -1108,8 +1133,9 @@ class Bridge:
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.settimeout(2.0)
+        sock.settimeout(1.0)
         sock.bind(("0.0.0.0", port))
+        self.udp_sock = sock
         print(f"  {C.GREEN}Listening on UDP 0.0.0.0:{port} …{C.RESET}\n")
 
         while self.running:
@@ -1140,6 +1166,13 @@ class Bridge:
             return
         print(f"\n  {C.YELLOW}[shutdown] Flushing remaining data …{C.RESET}")
         self.running = False
+        self.stop_simulation()
+
+        if self.udp_sock:
+            try:
+                self.udp_sock.close()
+            except Exception:
+                pass
 
         if self.local_server:
             self.local_server.stop()

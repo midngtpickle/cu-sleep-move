@@ -1,10 +1,6 @@
-/**
- * Live Monitor Page — Real-time vital signs display
- * WiFi Sleep Monitor
- */
-import { subscribeLiveVitals, getNodes, resolveNodeId } from '../services/api.js';
+import { subscribeLiveVitals, getNodes, resolveNodeId, startSimulation } from '../services/api.js';
 import { isApnea } from '../services/vitals.js';
-import { setConnectionStatus } from '../components/header.js';
+import { setConnectionStatus, updateSimulationUI } from '../components/header.js';
 import { createTimeChart, destroyChart } from '../components/chart.js';
 
 let unsubscribe = null;
@@ -100,11 +96,25 @@ export async function renderLive(container) {
       <!-- Waiting State -->
       <div class="waiting-overlay" id="waiting-overlay">
         <div class="waiting-pulse"></div>
-        <div class="waiting-text">Waiting for data…</div>
-        <div class="waiting-hint">Start the bridge with <code>python bridge.py --simulate</code></div>
+        <div class="waiting-text">Waiting for sensor data…</div>
+        <div class="waiting-hint">Power on your ESP32-C6 sensor, or test with simulated vitals:</div>
+        <button class="waiting-demo-btn" id="btn-start-demo-overlay">
+          <span class="demo-icon">▶</span> Start Demo Mode (Simulate)
+        </button>
       </div>
     </div>
   `;
+
+  // Demo button in waiting overlay
+  document.getElementById('btn-start-demo-overlay')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="demo-icon">⏳</span> Starting demo…';
+    const res = await startSimulation();
+    if (res?.simulating) {
+      updateSimulationUI(true);
+    }
+  });
 
   // Populate node dropdown
   await populateNodes();

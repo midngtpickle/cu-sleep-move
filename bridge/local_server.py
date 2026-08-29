@@ -61,6 +61,7 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     storage: Optional[BaseStorage] = None
+    bridge: Optional[Any] = None
     sse_clients: Set[SSEClient] = set()
     sse_lock = threading.Lock()
 
@@ -97,6 +98,39 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
                 self._serve_static(path)
         except (BrokenPipeError, ConnectionResetError):
             # Browser navigated away mid-response. Normal, not an error.
+            pass
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        bridge = LocalAPIHandler.bridge
+
+        try:
+            if path == "/api/simulation/start":
+                if bridge:
+                    bridge.start_simulation()
+                    self._send_json({"status": "ok", "simulating": True})
+                else:
+                    self._send_error_json(503, "Bridge controller not attached")
+            elif path == "/api/simulation/stop":
+                if bridge:
+                    bridge.stop_simulation()
+                    self._send_json({"status": "ok", "simulating": False})
+                else:
+                    self._send_error_json(503, "Bridge controller not attached")
+            elif path == "/api/simulation/toggle":
+                if bridge:
+                    if bridge.is_simulating():
+                        bridge.stop_simulation()
+                        self._send_json({"status": "ok", "simulating": False})
+                    else:
+                        bridge.start_simulation()
+                        self._send_json({"status": "ok", "simulating": True})
+                else:
+                    self._send_error_json(503, "Bridge controller not attached")
+            else:
+                self._send_error_json(404, f"Unknown POST endpoint: {path}")
+        except (BrokenPipeError, ConnectionResetError):
             pass
 
     # ── 1. SSE stream ─────────────────────────────────────────
@@ -161,6 +195,11 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
 
         if path == "/api/health":
             self._send_json({"status": "ok", "app": "CU SLEEP Local API"})
+            return
+
+        if path == "/api/simulation":
+            simulating = LocalAPIHandler.bridge.is_simulating() if LocalAPIHandler.bridge else False
+            self._send_json({"simulating": simulating})
             return
 
         if storage is None:
@@ -301,15 +340,17 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
 class LocalAPIServer:
     """Manages the lifecycle of the local HTTP/SSE server."""
 
-    def __init__(self, storage: BaseStorage, host: str = "127.0.0.1", port: int = 8080):
+    def __init__(self, storage: BaseStorage, host: str = "127.0.0.1", port: int = 8080, bridge: Optional[Any] = None):
         self.storage = storage
         self.host = host
         self.port = port
+        self.bridge = bridge
         self.server: Optional[ThreadingHTTPServer] = None
         self.thread: Optional[threading.Thread] = None
 
     def start(self):
         LocalAPIHandler.storage = self.storage
+        LocalAPIHandler.bridge = self.bridge
         self.server = ThreadingHTTPServer((self.host, self.port), LocalAPIHandler)
         self.server.daemon_threads = True
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
