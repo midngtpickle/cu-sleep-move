@@ -37,8 +37,10 @@
 * **Resting Heart Rate & Recovery:** 40–120 BPM overnight dips reflecting autonomic nervous system recovery.
 * **Apnea Episode Detection:** Automatic detection of breathing pauses (>10s) and calculation of nightly Apnea-Hypopnea Index (AHI).
 * **Sleep Architecture & Quality:** Automatic session grouping, overnight vitals trends, and sleep quality scores (0–100%).
-* **AI Clinical Sleep Analyst:** In-depth clinical summaries powered by **Claude 3.7 Sonnet** (Extended Thinking up to 32k tokens), **Gemini 2.5 Pro / Flash**, or **Custom Model IDs**.
+* **AI Clinical Sleep Analyst:** In-depth clinical summaries powered by **Claude 5 / 3.7** (Extended Thinking up to 32k tokens), **Gemini 3 / 2.5**, or **Custom Model IDs**.
 * **Clinical Data Portability:** 1-click **CSV** and **Clinical JSON** exports for doctor consultations or research.
+
+![CU SLEEP Live Vitals Monitor](docs/screenshots/cu-sleep-live.png)
 
 ### 📡 CU MOVE (Real-Time Spatial Radar & Presence)
 * **Live Respiration Oscilloscope:** High-frequency 60 FPS chest displacement sinusoidal waveform showing real-time breathing dynamics, inhale/exhale transitions, and apnea flatlines.
@@ -46,6 +48,8 @@
 * **Semantic Room States:** Real-time occupancy classification (*Quiet*, *Ambient*, *Active*, *Agitated*).
 * **Emergency Fall Detection & Audible Alarm:** Immediate detection of high-velocity phase disturbances followed by stillness, triggering an in-app Web Audio chime and external webhooks.
 * **30-Minute Activity Heatstrip:** Continuous rolling timeline of room activity and disturbance intensity.
+
+![CU MOVE 2D Room Mesh & Respiration Oscilloscope](docs/screenshots/cu-move-radar.png)
 
 ---
 
