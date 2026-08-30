@@ -243,9 +243,9 @@ class LocalAPIHandler(BaseHTTPRequestHandler):
 
         try:
             if provider == "claude":
-                result = self._call_claude(api_key, model or "claude-3-7-sonnet-20250219", prompt, system_prompt, thinking_budget, is_test)
+                result = self._call_claude(api_key, model or "claude-sonnet-5", prompt, system_prompt, thinking_budget, is_test)
             elif provider == "gemini":
-                result = self._call_gemini(api_key, model or "gemini-2.5-flash", prompt, system_prompt, thinking_budget, is_test)
+                result = self._call_gemini(api_key, model or "gemini-3.7-flash", prompt, system_prompt, thinking_budget, is_test)
             else:
                 self._send_error_json(400, f"Unsupported AI provider: {provider}")
                 return

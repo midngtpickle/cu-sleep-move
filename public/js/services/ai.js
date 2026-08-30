@@ -13,25 +13,23 @@ export const AI_PROVIDERS = {
 
 export const AI_MODELS = {
   gemini: [
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Fast · Reasoning Synthesis', default: true, supportsThinking: true },
-    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', tag: 'Deep Clinical Synthesis & Reasoning', supportsThinking: true },
-    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', tag: 'High Speed · Thinking', supportsThinking: true },
-    { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite', tag: 'Cost-Optimized' },
-    { id: 'gemini-2.0-flash-thinking-exp-01-21', name: 'Gemini 2.0 Flash Thinking Exp', tag: 'Dedicated Thinking', supportsThinking: true },
-    { id: 'gemini-2.0-pro-exp-02-05', name: 'Gemini 2.0 Pro Exp', tag: 'Frontier Experimental', supportsThinking: true },
-    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', tag: 'Long Context (2M tokens)' },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', tag: 'Lightweight Baseline' },
+    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', tag: 'Frontier · Agentic & Reasoning', default: true, supportsThinking: true },
+    { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro Preview', tag: 'Flagship · Deep Reasoning', supportsThinking: true },
+    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash', tag: 'High-Capability · Long Horizon', supportsThinking: true },
+    { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite', tag: 'Ultra-Fast Throughput', supportsThinking: true },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', tag: 'Clinical Synthesis & Reasoning', supportsThinking: true },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Speed & Balanced Quality', supportsThinking: true },
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', tag: 'Legacy Frontier', supportsThinking: true },
     { id: 'custom', name: 'Custom Model ID...', tag: 'Enter any Gemini/Vertex model', isCustom: true, supportsThinking: true },
   ],
   claude: [
-    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', tag: 'Hybrid Reasoning & Extended Thinking', default: true, supportsThinking: true },
+    { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', tag: 'Frontier · Advanced Reasoning', default: true, supportsThinking: true },
+    { id: 'claude-opus-5', name: 'Claude Opus 5', tag: 'Frontier · Deep Clinical Synthesis', supportsThinking: true },
+    { id: 'claude-fable-5', name: 'Claude Fable 5', tag: 'Long-Horizon Agentic Reasoning', supportsThinking: true },
+    { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', tag: 'Fast & High Intelligence', supportsThinking: true },
+    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', tag: 'Hybrid Reasoning & Thinking', supportsThinking: true },
     { id: 'claude-3-7-sonnet-latest', name: 'Claude 3.7 Sonnet (Latest)', tag: 'Auto-updating alias', supportsThinking: true },
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet v2', tag: 'High Capability' },
     { id: 'claude-3-5-sonnet-latest', name: 'Claude 3.5 Sonnet (Latest)', tag: 'Auto-updating alias' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', tag: 'Fast & Compact' },
-    { id: 'claude-3-5-haiku-latest', name: 'Claude 3.5 Haiku (Latest)', tag: 'Auto-updating alias' },
-    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', tag: 'Deep Reasoning' },
-    { id: 'claude-3-opus-latest', name: 'Claude 3 Opus (Latest)', tag: 'Auto-updating alias' },
     { id: 'custom', name: 'Custom Model ID...', tag: 'Enter any Anthropic model or fine-tune', isCustom: true, supportsThinking: true },
   ],
 };
@@ -105,7 +103,7 @@ export function getSelectedModel(provider = getActiveProvider()) {
     return stored;
   }
   const def = AI_MODELS[provider]?.find(m => m.default) || AI_MODELS[provider]?.[0];
-  return def?.id || (provider === AI_PROVIDERS.CLAUDE ? 'claude-3-7-sonnet-20250219' : 'gemini-2.5-flash');
+  return def?.id || (provider === AI_PROVIDERS.CLAUDE ? 'claude-sonnet-5' : 'gemini-3.7-flash');
 }
 
 export function setSelectedModel(provider, modelId) {
@@ -175,7 +173,7 @@ export async function testApiKey(provider, key, model) {
 }
 
 export async function testGeminiKey(key) {
-  return testApiKey(AI_PROVIDERS.GEMINI, key, 'gemini-2.5-flash');
+  return testApiKey(AI_PROVIDERS.GEMINI, key, 'gemini-3.7-flash');
 }
 
 // ─── Sleep Analysis Generation ───────────────────────────────────────────

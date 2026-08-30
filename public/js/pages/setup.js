@@ -293,7 +293,7 @@ python3 bridge.py --host 0.0.0.0
             <!-- Custom Model Identifier Input -->
             <div id="ai-custom-model-row" style="display: none;">
               <label for="ai-custom-model-input" style="display: block; font-size: var(--fs-xs); color: var(--mid); margin-bottom: var(--sp-1); text-transform: uppercase; letter-spacing: 0.05em;">Custom Model Identifier</label>
-              <input type="text" id="ai-custom-model-input" placeholder="e.g. claude-3-7-sonnet-20250219 or gemini-2.5-pro" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-family: var(--font-mono); font-size: var(--fs-sm);" />
+              <input type="text" id="ai-custom-model-input" placeholder="e.g. claude-sonnet-5 or gemini-3.7-flash" style="width: 100%; background: var(--dark-1); border: var(--border-default); border-radius: var(--radius-sm); padding: var(--sp-2) var(--sp-3); color: var(--white); font-family: var(--font-mono); font-size: var(--fs-sm);" />
             </div>
 
             <!-- Extended Thinking / Reasoning Budget -->

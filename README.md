@@ -125,13 +125,19 @@ Bring your own API key to generate comprehensive clinical evaluations of your sl
 
 ### Supported AI Models:
 * **Anthropic Claude:**
-  * `claude-3-7-sonnet-20250219` / `claude-3-7-sonnet-latest` *(Hybrid Reasoning & Extended Thinking)*
-  * `claude-3-5-sonnet-20241022` / `claude-3-5-sonnet-latest`
-  * `claude-3-5-haiku-20241022` & `claude-3-opus-20240229`
+  * `claude-sonnet-5` *(Frontier · Advanced Reasoning & Extended Thinking)*
+  * `claude-opus-5` *(Frontier · Deep Clinical Synthesis)*
+  * `claude-fable-5` *(Frontier · Long-Horizon Reasoning)*
+  * `claude-haiku-4-5-20251001` *(Fast & High Intelligence)*
+  * `claude-3-7-sonnet-20250219` / `claude-3-7-sonnet-latest` *(Hybrid Reasoning & Thinking)*
+  * `claude-3-5-sonnet-latest`
 * **Google Gemini:**
-  * `gemini-2.5-pro` & `gemini-2.5-flash` *(Deep Clinical Synthesis & Reasoning)*
-  * `gemini-2.0-flash` & `gemini-2.0-flash-thinking-exp-01-21`
-  * `gemini-1.5-pro` & `gemini-1.5-flash`
+  * `gemini-3.7-flash` *(Frontier · Agentic & Reasoning)*
+  * `gemini-3.1-pro-preview` *(Flagship · Deep Reasoning)*
+  * `gemini-3.5-flash` *(High-Capability · Long Horizon)*
+  * `gemini-3.5-flash-lite` *(Ultra-Fast Throughput)*
+  * `gemini-2.5-pro` & `gemini-2.5-flash` *(Clinical Synthesis & Reasoning)*
+  * `gemini-2.0-flash`
 * **Custom Model Identifier:** Enter any custom model string or private fine-tune checkpoint!
 * **Thinking Token Budgets:** Configurable from 1k up to 32k tokens with an interactive **🧠 Clinical Reasoning Process** viewer.
 * **Zero Telemetry / Privacy First:** API keys are stored strictly in your browser's local storage. Only numeric aggregate metrics are transmitted.
