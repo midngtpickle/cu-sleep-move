@@ -534,7 +534,35 @@ img { max-width: 100%; display: block; }
   letter-spacing: 0.05em;
 }
 
-/* Vitals grid */
+/* Vitals grid & Sleep charts */
+.sleep-charts-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+}
+
+.sleep-chart-box {
+  background: var(--dark-1);
+  border: 1px solid var(--dark-3);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.sleep-chart-subhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .vitals-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
