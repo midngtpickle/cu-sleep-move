@@ -3555,133 +3555,122 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--mid-light);
 }
 
-/* ── Settings drawer ─────────────────────────────────────── */
-.drawer-scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  z-index: 99;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--duration-normal) var(--ease-out);
-}
-
-.drawer-scrim.open {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.settings-drawer {
-  position: fixed;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: min(380px, 90vw);
+/* ── Settings Panel (Under Event Log) ─────────────────────── */
+.sense-settings-panel {
   background: var(--near-black);
-  border-left: 1px solid var(--dark-4);
-  z-index: 100;
-  transform: translateX(100%);
-  transition: transform var(--duration-normal) var(--ease-out);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--sp-5);
+  margin-top: var(--sp-6);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.sense-settings-header {
+  border-bottom: 1px solid var(--dark-3);
+  padding-bottom: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+
+.sense-settings-title-group {
   display: flex;
   flex-direction: column;
+  gap: var(--sp-1);
 }
 
-.settings-drawer.open {
-  transform: translateX(0);
-}
-
-.drawer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--sp-4);
-  border-bottom: var(--border-default);
-}
-
-.drawer-title {
+.sense-settings-title {
   font-size: var(--fs-sm);
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--white);
 }
 
-.drawer-close {
-  background: transparent;
-  border: none;
+.sense-settings-sub {
+  font-size: var(--fs-xs);
   color: var(--mid);
-  font-size: var(--fs-xl);
-  cursor: pointer;
-  line-height: 1;
 }
 
-.drawer-close:hover {
-  color: var(--white);
+.sense-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
 }
 
-.drawer-body {
+.sense-settings-card {
+  background: var(--dark-1);
+  border: 1px solid var(--dark-3);
+  border-radius: var(--radius-sm);
   padding: var(--sp-4);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
-  overflow-y: auto;
+  justify-content: space-between;
 }
 
-.drawer-row {
+.sense-settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.sense-settings-toggle-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--sp-3);
 }
 
-.drawer-label {
+.sense-settings-label {
   font-size: var(--fs-sm);
-  color: var(--light-1);
+  font-weight: 600;
+  color: var(--white);
+  display: block;
 }
 
-.drawer-row input[type="number"] {
-  background: var(--dark-1);
+.sense-settings-desc {
+  font-size: var(--fs-xs);
+  color: var(--mid);
+  display: block;
+  margin-top: 2px;
+  line-height: 1.4;
+}
+
+.sense-settings-input {
+  background: var(--dark-2);
   border: var(--border-default);
   border-radius: var(--radius-sm);
   color: var(--white);
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
-  padding: var(--sp-1) var(--sp-2);
-  width: 80px;
-  text-align: right;
+  padding: var(--sp-2) var(--sp-3);
+  width: 100%;
+  max-width: 120px;
+  margin-top: var(--sp-2);
 }
 
-.drawer-row input[type="checkbox"] {
+.sense-settings-checkbox {
   accent-color: var(--white);
   width: 18px;
   height: 18px;
+  cursor: pointer;
+  margin-top: 2px;
+  flex-shrink: 0;
 }
 
-.drawer-note {
+.sense-settings-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--dark-3);
+  padding-top: var(--sp-4);
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.sense-settings-note {
   font-size: var(--fs-xs);
   color: var(--mid);
-  line-height: 1.5;
-  border-left: 2px solid var(--dark-4);
-  padding-left: var(--sp-3);
-}
-
-.drawer-save {
-  background: var(--white);
-  color: var(--black);
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: var(--sp-3) var(--sp-4);
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-  margin-top: var(--sp-4);
-}
-
-.drawer-save:hover {
-  opacity: 0.85;
+  margin: 0;
 }
 
 /* ── Responsive ──────────────────────────────────────────── */

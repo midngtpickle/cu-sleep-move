@@ -140,7 +140,6 @@ export async function renderSensing(container) {
         <div class="semantic-panel">
           <div class="semantic-header">
             <span class="semantic-title">STATE</span>
-            <button class="settings-btn" id="settings-btn" title="Settings">⚙</button>
           </div>
           ${semanticRow('Room',        'sem-room', 'Quiet')}
           ${semanticRow('Idle for',    'sem-idle', '0s')}
@@ -189,36 +188,65 @@ export async function renderSensing(container) {
         <div class="event-console" id="event-console"></div>
       </div>
 
-      <div class="drawer-scrim" id="drawer-scrim"></div>
-      <aside class="settings-drawer" id="settings-drawer">
-        <div class="drawer-header">
-          <span class="drawer-title">SETTINGS</span>
-          <button class="drawer-close" id="drawer-close">×</button>
-        </div>
-        <div class="drawer-body">
-          <label class="drawer-row">
-            <span class="drawer-label">Idle alert (minutes)</span>
-            <input type="number" id="set-idle-min" min="1" max="240" step="1" value="${settings.idleAlertMinutes}">
-          </label>
-          <label class="drawer-row">
-            <span class="drawer-label">Browser notifications</span>
-            <input type="checkbox" id="set-notify" ${settings.notifications ? 'checked' : ''}>
-          </label>
-          <label class="drawer-row">
-            <span class="drawer-label">Notify on fall</span>
-            <input type="checkbox" id="set-notify-fall" ${settings.notifyOnFall ? 'checked' : ''}>
-          </label>
-          <label class="drawer-row">
-            <span class="drawer-label">Audible sound alarm</span>
-            <input type="checkbox" id="set-sound-alarm" ${settings.soundAlarm !== false ? 'checked' : ''}>
-          </label>
-          <div style="margin-top: var(--sp-2);">
-            <button class="btn btn-sm" id="test-sound-btn" style="width: 100%; font-size: 11px;">▶ Test Alarm Sound</button>
+      <!-- Dedicated Settings Section Under Event Log -->
+      <div class="sense-settings-panel" id="sense-settings-section">
+        <div class="sense-settings-header">
+          <div class="sense-settings-title-group">
+            <span class="sense-settings-title">⚙ CU MOVE SETTINGS &amp; ALARMS</span>
+            <span class="sense-settings-sub">Configure idle alerts, desktop notifications, and emergency fall chime</span>
           </div>
-          <p class="drawer-note" style="margin-top: var(--sp-4);">Configure Home Assistant MQTT &amp; Emergency Webhooks in the <a href="#/setup" style="color: var(--white); text-decoration: underline;">Setup Page</a>.</p>
-          <button class="drawer-save" id="drawer-save">Save</button>
         </div>
-      </aside>
+        <div class="sense-settings-grid">
+          <div class="sense-settings-card">
+            <label class="sense-settings-field">
+              <span class="sense-settings-label">Idle Alert (Minutes)</span>
+              <span class="sense-settings-desc">Flag absence or stillness exceeding this threshold</span>
+              <input type="number" id="set-idle-min" min="1" max="240" step="1" value="${settings.idleAlertMinutes}" class="sense-settings-input">
+            </label>
+          </div>
+
+          <div class="sense-settings-card">
+            <div class="sense-settings-toggle-row">
+              <div>
+                <span class="sense-settings-label">Browser Notifications</span>
+                <span class="sense-settings-desc">Desktop push alerts when room events occur</span>
+              </div>
+              <input type="checkbox" id="set-notify" ${settings.notifications ? 'checked' : ''} class="sense-settings-checkbox">
+            </div>
+          </div>
+
+          <div class="sense-settings-card">
+            <div class="sense-settings-toggle-row">
+              <div>
+                <span class="sense-settings-label">Notify on Fall</span>
+                <span class="sense-settings-desc">Immediate high-priority alert on rapid velocity drops</span>
+              </div>
+              <input type="checkbox" id="set-notify-fall" ${settings.notifyOnFall ? 'checked' : ''} class="sense-settings-checkbox">
+            </div>
+          </div>
+
+          <div class="sense-settings-card">
+            <div class="sense-settings-toggle-row">
+              <div>
+                <span class="sense-settings-label">Audible Fall Alarm</span>
+                <span class="sense-settings-desc">Play dual-tone alert chime in browser</span>
+              </div>
+              <input type="checkbox" id="set-sound-alarm" ${settings.soundAlarm !== false ? 'checked' : ''} class="sense-settings-checkbox">
+            </div>
+            <div style="margin-top: var(--sp-3);">
+              <button class="btn btn-sm" id="test-sound-btn" style="width: 100%; font-size: 11px;">▶ Test Alarm Sound</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sense-settings-footer">
+          <p class="sense-settings-note">Configure Home Assistant MQTT &amp; Emergency Webhooks in the <a href="#/setup" style="color: var(--white); text-decoration: underline;">Setup Page</a>.</p>
+          <div style="display: flex; align-items: center; gap: var(--sp-3);">
+            <span id="sense-save-status" style="font-size: var(--fs-xs); font-family: var(--font-mono); color: #4ade80;"></span>
+            <button class="btn btn-primary" id="save-sense-settings-btn" style="padding: 8px 20px;">Save Settings</button>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 
@@ -912,16 +940,9 @@ function bindUI() {
     playFallAlarmSound();
   });
 
-  const drawer = document.getElementById('settings-drawer');
-  const scrim  = document.getElementById('drawer-scrim');
-  const open  = () => { drawer?.classList.add('open'); scrim?.classList.add('open'); };
-  const close = () => { drawer?.classList.remove('open'); scrim?.classList.remove('open'); };
-
-  document.getElementById('settings-btn')?.addEventListener('click', open);
-  document.getElementById('drawer-close')?.addEventListener('click', close);
-  scrim?.addEventListener('click', close);
-
-  document.getElementById('drawer-save')?.addEventListener('click', async () => {
+  document.getElementById('save-sense-settings-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('save-sense-settings-btn');
+    if (btn) btn.disabled = true;
     const newSettings = {
       idleAlertMinutes: Math.max(1, Math.min(240, +document.getElementById('set-idle-min').value || 10)),
       notifications:   document.getElementById('set-notify').checked,
@@ -930,7 +951,13 @@ function bindUI() {
     };
     saveSettings(newSettings);
     if (newSettings.notifications) await ensureNotificationPermission();
-    close();
+    
+    const status = document.getElementById('sense-save-status');
+    if (status) {
+      status.textContent = 'Settings saved ✓';
+      setTimeout(() => { status.textContent = ''; }, 3000);
+    }
+    if (btn) btn.disabled = false;
   });
 }
 
