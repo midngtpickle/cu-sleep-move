@@ -1,6 +1,6 @@
 # 🌙 CU SLEEP / 📡 CU MOVE
 
-**Privacy-first contactless sleep monitor & real-time spatial motion radar powered by WiFi Channel State Information (CSI), ESP32-C6 microcontrollers, a zero-dependency Python bridge, and local SQLite storage.**
+**Contactless sleep monitor & real-time spatial motion radar powered by WiFi Channel State Information (CSI), ESP32-C6 microcontrollers, a zero-dependency Python bridge, and local SQLite storage.**
 
 > ⚠️ **RESEARCH & EDUCATIONAL USE ONLY — NOT A MEDICAL DEVICE**  
 > *Not FDA-cleared or CE-marked. Do not use as a substitute for professional medical diagnosis, treatment, or clinical patient monitoring.*
